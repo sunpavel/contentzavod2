@@ -1,0 +1,101 @@
+{
+  "name": "WF3b - Remotion render (template path)",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## WF3b — Remotion рендер (шаблонный путь, $0)\nДешёвая альтернатива AI-видео (WF3). Берёт строки status=scripted + source_type=template,\nрендерит product-demo рилс на Remotion по hook-конфигу → status=produced.\n\n⚠️ Execute Command исполняется на хосте n8n. Нужны: Node + remotion/ (node_modules) +\nheadless-Chrome + смонтированный репозиторий. См. docs/05-remotion-in-factory.md.\n\nhook_json готовит WF2/LLM или берётся шаблонный (массив карточек хука).",
+        "height": 260,
+        "width": 440
+      },
+      "id": "wf3b-note",
+      "name": "Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [160, 60]
+    },
+    {
+      "parameters": { "rule": { "interval": [ { "field": "minutes", "minutesInterval": 30 } ] } },
+      "id": "wf3b-trigger",
+      "name": "Every 30 min",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [240, 400]
+    },
+    {
+      "parameters": {
+        "operation": "read",
+        "documentId": { "__rl": true, "value": "={{ $env.GOOGLE_SHEET_ID }}", "mode": "id" },
+        "sheetName": { "__rl": true, "value": "={{ $env.GOOGLE_SHEET_TAB }}", "mode": "name" },
+        "filtersUI": { "values": [ { "lookupColumn": "status", "lookupValue": "scripted" }, { "lookupColumn": "source_type", "lookupValue": "template" } ] },
+        "options": {}
+      },
+      "id": "wf3b-read",
+      "name": "Read template rows",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [460, 400],
+      "credentials": { "googleSheetsOAuth2Api": { "id": "REPLACE_ME", "name": "Google Sheets account" } }
+    },
+    {
+      "parameters": {
+        "jsItems": "// собрать hook_json: если в shotlist_json уже лежит массив карточек — берём его,\n// иначе строим 2 карточки из topic/hook (best-effort шаблон).\nreturn items.map(i => {\n  const row = i.json;\n  let hook;\n  try { const j = JSON.parse(row.shotlist_json || row.hook || ''); if (Array.isArray(j)) hook = j; } catch(e) {}\n  if (!hook) hook = [\n    { label: (row.topic || '').slice(0,24) || 'Опять', line: (row.hook || 'Одно и то же').slice(0,18), size: 120 },\n    { label: 'Каждый день', line: 'НАДОЕЛО', size: 130 }\n  ];\n  return { json: { id: row.id, hook_json: JSON.stringify(hook) } };\n});",
+        "mode": "runOnceForAllItems",
+        "language": "javaScript"
+      },
+      "id": "wf3b-build",
+      "name": "Build hook_json",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [680, 400]
+    },
+    {
+      "parameters": {
+        "command": "=bash /data/contentzavod2/tools/factory_render.sh \"{{ $json.id }}\" '{{ $json.hook_json }}'"
+      },
+      "id": "wf3b-render",
+      "name": "Render (Execute Command)",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [900, 400],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsItems": "return items.map(i => ({ json: {\n  id: $('Build hook_json').item.json.id,\n  status: i.json.exitCode === 0 || i.json.stdout ? 'produced' : 'error',\n  video_url: (i.json.stdout || '').trim(),\n  cost_usd: 0,\n  error_log: (i.json.stderr || '').slice(-300)\n}}));",
+        "mode": "runOnceForEachItem",
+        "language": "javaScript"
+      },
+      "id": "wf3b-result",
+      "name": "Build result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1120, 400]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": { "__rl": true, "value": "={{ $env.GOOGLE_SHEET_ID }}", "mode": "id" },
+        "sheetName": { "__rl": true, "value": "={{ $env.GOOGLE_SHEET_TAB }}", "mode": "name" },
+        "columns": { "mappingMode": "autoMapInputData", "matchingColumns": [ "id" ], "value": {} },
+        "options": {}
+      },
+      "id": "wf3b-update",
+      "name": "Update Sheet",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [1340, 400],
+      "credentials": { "googleSheetsOAuth2Api": { "id": "REPLACE_ME", "name": "Google Sheets account" } }
+    }
+  ],
+  "connections": {
+    "Every 30 min": { "main": [ [ { "node": "Read template rows", "type": "main", "index": 0 } ] ] },
+    "Read template rows": { "main": [ [ { "node": "Build hook_json", "type": "main", "index": 0 } ] ] },
+    "Build hook_json": { "main": [ [ { "node": "Render (Execute Command)", "type": "main", "index": 0 } ] ] },
+    "Render (Execute Command)": { "main": [ [ { "node": "Build result", "type": "main", "index": 0 } ], [ { "node": "Build result", "type": "main", "index": 0 } ] ] },
+    "Build result": { "main": [ [ { "node": "Update Sheet", "type": "main", "index": 0 } ] ] }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" },
+  "pinData": {},
+  "tags": [ { "name": "content-zavod" } ]
+}

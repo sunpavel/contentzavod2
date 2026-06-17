@@ -4,7 +4,9 @@
   "private": true,
   "scripts": {
     "dev": "remotion studio",
-    "render": "remotion render GrechkaReel out/grechka_v2.mp4 --codec=h264"
+    "render": "remotion render GrechkaReel out/grechka_v2.mp4 --codec=h264",
+    "render:batch": "node render_batch.mjs",
+    "render:one": "node render_one.mjs"
   },
   "dependencies": {
     "@fontsource/montserrat": "^5.2.8",
