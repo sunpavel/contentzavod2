@@ -7,11 +7,13 @@
     "render": "remotion render GrechkaReel out/grechka_v2.mp4 --codec=h264"
   },
   "dependencies": {
+    "@fontsource/montserrat": "^5.2.8",
     "@remotion/cli": "^4.0.0",
     "@remotion/google-fonts": "^4.0.0",
-    "remotion": "^4.0.0",
+    "@remotion/transitions": "^4.0.479",
     "react": "18.3.1",
-    "react-dom": "18.3.1"
+    "react-dom": "18.3.1",
+    "remotion": "^4.0.0"
   },
   "devDependencies": {
     "@types/react": "18.3.12",

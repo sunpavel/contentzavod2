@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
 import {
   AbsoluteFill,
-  Sequence,
   useCurrentFrame,
   useVideoConfig,
   interpolate,
@@ -10,12 +9,42 @@ import {
   delayRender,
   continueRender,
 } from "remotion";
+import { TransitionSeries, linearTiming } from "@remotion/transitions";
+import { fade } from "@remotion/transitions/fade";
+import { slide } from "@remotion/transitions/slide";
 
-const FONT = "DejaVuLocal";
-const fontFamily = `${FONT}, sans-serif`;
+const MONT = "Montserrat";
+const DEJA = "DejaVuLocal";
+const fontFamily = `${MONT}, ${DEJA}, sans-serif`;
+
+// unicode-range подсетов Google (чтобы кириллица/латиница тянулись из нужных файлов,
+// а отсутствующие глифы — напр. ₽ — падали в DejaVu)
+const CYR = "U+0301,U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116";
+const LAT =
+  "U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+2074,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD";
+
+const loadAllFonts = () => {
+  const faces: FontFace[] = [];
+  for (const w of ["700", "800", "900"]) {
+    faces.push(
+      new FontFace(MONT, `url(${staticFile(`fonts/montserrat-cyrillic-${w}-normal.woff2`)})`, {
+        weight: w,
+        unicodeRange: CYR,
+      })
+    );
+    faces.push(
+      new FontFace(MONT, `url(${staticFile(`fonts/montserrat-latin-${w}-normal.woff2`)})`, {
+        weight: w,
+        unicodeRange: LAT,
+      })
+    );
+  }
+  faces.push(new FontFace(DEJA, `url(${staticFile("fonts/DejaVuSans-Bold.ttf")})`, { weight: "100 900" }));
+  return Promise.all(faces.map((f) => f.load().then((l) => document.fonts.add(l))));
+};
 
 export const FPS = 30;
-export const REEL_DURATION = 520; // ~17.3s
+export const REEL_DURATION = 490; // ~16.3s (с учётом перекрытий переходов)
 
 const C = {
   dark: "#15151A",
@@ -292,47 +321,61 @@ const Cta: React.FC = () => {
   );
 };
 
+const fadeT = (d = 9) => ({ presentation: fade(), timing: linearTiming({ durationInFrames: d }) });
+
 export const GrechkaReel: React.FC = () => {
-  const [handle] = useState(() => delayRender("load-font"));
+  const [handle] = useState(() => delayRender("load-fonts"));
   useEffect(() => {
-    const face = new FontFace(FONT, `url(${staticFile("fonts/DejaVuSans-Bold.ttf")})`, {
-      weight: "100 900",
-    });
-    face
-      .load()
-      .then((loaded) => {
-        document.fonts.add(loaded);
-        continueRender(handle);
-      })
+    loadAllFonts()
+      .then(() => continueRender(handle))
       .catch(() => continueRender(handle));
   }, [handle]);
 
   return (
     <AbsoluteFill style={{ backgroundColor: C.dark }}>
-      <Sequence durationInFrames={27}>
-        <Pain day="Понедельник" word="Гречка." />
-      </Sequence>
-      <Sequence from={27} durationInFrames={27}>
-        <Pain day="Вторник" word="Гречка." />
-      </Sequence>
-      <Sequence from={54} durationInFrames={40}>
-        <Pain day="Среда" word="Опять гречка." size={112} />
-      </Sequence>
-      <Sequence from={94} durationInFrames={48}>
-        <Nadoelo />
-      </Sequence>
-      <Sequence from={142} durationInFrames={150}>
-        <Phone />
-      </Sequence>
-      <Sequence from={292} durationInFrames={92}>
-        <Benefit />
-      </Sequence>
-      <Sequence from={384} durationInFrames={70}>
-        <Save />
-      </Sequence>
-      <Sequence from={454} durationInFrames={66}>
-        <Cta />
-      </Sequence>
+      <TransitionSeries>
+        <TransitionSeries.Sequence durationInFrames={32}>
+          <Pain day="Понедельник" word="Гречка." />
+        </TransitionSeries.Sequence>
+        <TransitionSeries.Transition {...fadeT(7)} />
+
+        <TransitionSeries.Sequence durationInFrames={32}>
+          <Pain day="Вторник" word="Гречка." />
+        </TransitionSeries.Sequence>
+        <TransitionSeries.Transition {...fadeT(7)} />
+
+        <TransitionSeries.Sequence durationInFrames={42}>
+          <Pain day="Среда" word="Опять гречка." size={112} />
+        </TransitionSeries.Sequence>
+        <TransitionSeries.Transition
+          presentation={slide({ direction: "from-bottom" })}
+          timing={linearTiming({ durationInFrames: 8 })}
+        />
+
+        <TransitionSeries.Sequence durationInFrames={50}>
+          <Nadoelo />
+        </TransitionSeries.Sequence>
+        <TransitionSeries.Transition {...fadeT(9)} />
+
+        <TransitionSeries.Sequence durationInFrames={155}>
+          <Phone />
+        </TransitionSeries.Sequence>
+        <TransitionSeries.Transition {...fadeT(9)} />
+
+        <TransitionSeries.Sequence durationInFrames={95}>
+          <Benefit />
+        </TransitionSeries.Sequence>
+        <TransitionSeries.Transition {...fadeT(9)} />
+
+        <TransitionSeries.Sequence durationInFrames={72}>
+          <Save />
+        </TransitionSeries.Sequence>
+        <TransitionSeries.Transition {...fadeT(9)} />
+
+        <TransitionSeries.Sequence durationInFrames={70}>
+          <Cta />
+        </TransitionSeries.Sequence>
+      </TransitionSeries>
     </AbsoluteFill>
   );
 };
