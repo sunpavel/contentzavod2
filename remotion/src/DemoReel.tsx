@@ -15,7 +15,7 @@ import { fade } from "@remotion/transitions/fade";
 import { slide } from "@remotion/transitions/slide";
 
 export const DEMO_FPS = 30;
-export const DEMO_DURATION = 417; // ~13.9s (с учётом перекрытий)
+export const DEMO_DURATION = 494; // ~16.5s (с учётом перекрытий)
 
 const MONT = "Montserrat";
 const DEJA = "DejaVuLocal";
@@ -134,6 +134,39 @@ const DemoScene: React.FC<{ src: string; caption: string }> = ({ src, caption })
   );
 };
 
+// Бит «ценность»: три строки поп-ином (включая список покупок)
+const Benefit: React.FC = () => {
+  const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
+  const lines = [
+    { t: "Готовый план под цель", accent: false },
+    { t: "Считает калории и КБЖУ", accent: false },
+    { t: "+ список покупок", accent: true },
+  ];
+  return (
+    <AbsoluteFill style={{ ...center, background: "radial-gradient(circle at 50% 30%, #11331f 0%, #0a0a0f 62%)", flexDirection: "column" }}>
+      {lines.map((l, i) => {
+        const p = spring({ frame: frame - i * 11, fps, config: { damping: 13, stiffness: 140 } });
+        return (
+          <div
+            key={i}
+            style={{
+              opacity: p,
+              transform: `translateY(${interpolate(p, [0, 1], [28, 0])}px) scale(${interpolate(p, [0, 1], [0.8, 1])})`,
+              color: l.accent ? "#34D399" : C.white,
+              fontSize: l.accent ? 92 : 72,
+              fontWeight: 900,
+              margin: "14px 0",
+            }}
+          >
+            {l.t}
+          </div>
+        );
+      })}
+    </AbsoluteFill>
+  );
+};
+
 const Cta: React.FC = () => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
@@ -188,6 +221,11 @@ export const DemoReel: React.FC = () => {
 
         <TransitionSeries.Sequence durationInFrames={150}>
           <DemoScene src={staticFile("clip_menu_real.mp4")} caption="Меню на неделю + рецепты" />
+        </TransitionSeries.Sequence>
+        <TransitionSeries.Transition {...fadeT(8)} />
+
+        <TransitionSeries.Sequence durationInFrames={85}>
+          <Benefit />
         </TransitionSeries.Sequence>
         <TransitionSeries.Transition {...fadeT(8)} />
 
