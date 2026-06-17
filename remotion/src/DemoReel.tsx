@@ -15,7 +15,7 @@ import { fade } from "@remotion/transitions/fade";
 import { slide } from "@remotion/transitions/slide";
 
 export const DEMO_FPS = 30;
-export const DEMO_DURATION = 575; // ~19.2s (с учётом перекрытий)
+export const DEMO_DURATION = 417; // ~13.9s (с учётом перекрытий)
 
 const MONT = "Montserrat";
 const DEJA = "DejaVuLocal";
@@ -181,13 +181,13 @@ export const DemoReel: React.FC = () => {
         </TransitionSeries.Sequence>
         <TransitionSeries.Transition {...fadeT(8)} />
 
-        <TransitionSeries.Sequence durationInFrames={195}>
+        <TransitionSeries.Sequence durationInFrames={135}>
           <DemoScene src={staticFile("clip_onboarding.mp4")} caption="Настрой под себя — 30 секунд" />
         </TransitionSeries.Sequence>
         <TransitionSeries.Transition {...fadeT(8)} />
 
-        <TransitionSeries.Sequence durationInFrames={248}>
-          <DemoScene src={staticFile("clip_plan.mp4")} caption="Меню на неделю + список покупок" />
+        <TransitionSeries.Sequence durationInFrames={150}>
+          <DemoScene src={staticFile("clip_menu_real.mp4")} caption="Меню на неделю + рецепты" />
         </TransitionSeries.Sequence>
         <TransitionSeries.Transition {...fadeT(8)} />
 
