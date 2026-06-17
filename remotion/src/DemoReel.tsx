@@ -17,6 +17,13 @@ import { slide } from "@remotion/transitions/slide";
 export const DEMO_FPS = 30;
 export const DEMO_DURATION = 494; // ~16.5s (с учётом перекрытий)
 
+// Хук задаётся пропсом — так один компонент рендерит разные варианты боли.
+export type HookCard = { label: string; line: string; size?: number };
+export const GRECHKA_HOOK: HookCard[] = [
+  { label: "Понедельник", line: "Гречка.", size: 150 },
+  { label: "Среда", line: "Опять гречка.", size: 112 },
+];
+
 const MONT = "Montserrat";
 const DEJA = "DejaVuLocal";
 const fontFamily = `${MONT}, ${DEJA}, sans-serif`;
@@ -45,18 +52,18 @@ const C = {
 const HANDLE = "@foodgenius_ai_bot";
 const center: React.CSSProperties = { fontFamily, justifyContent: "center", alignItems: "center", textAlign: "center" };
 
-const Pain: React.FC<{ day: string; word: string; size?: number }> = ({ day, word, size = 150 }) => {
+const Pain: React.FC<{ label: string; line: string; size?: number }> = ({ label, line, size = 150 }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
-  const dayP = spring({ frame, fps, config: { damping: 200 } });
-  const wordP = spring({ frame: frame - 6, fps, config: { damping: 11, stiffness: 150 } });
+  const labelP = spring({ frame, fps, config: { damping: 200 } });
+  const lineP = spring({ frame: frame - 6, fps, config: { damping: 11, stiffness: 150 } });
   return (
     <AbsoluteFill style={{ ...center, backgroundColor: C.muted }}>
-      <div style={{ opacity: dayP, transform: `translateY(${interpolate(dayP, [0, 1], [-34, 0])}px)`, color: C.sub, fontSize: 54, fontWeight: 700, letterSpacing: 6, marginBottom: 28 }}>
-        {day.toUpperCase()}
+      <div style={{ opacity: labelP, transform: `translateY(${interpolate(labelP, [0, 1], [-34, 0])}px)`, color: C.sub, fontSize: 48, fontWeight: 700, letterSpacing: 5, marginBottom: 28, maxWidth: 980, padding: "0 40px" }}>
+        {label.toUpperCase()}
       </div>
-      <div style={{ opacity: wordP, transform: `scale(${interpolate(wordP, [0, 1], [0.55, 1])})`, color: C.white, fontSize: size, fontWeight: 900, maxWidth: 1000, lineHeight: 1.05 }}>
-        {word}
+      <div style={{ opacity: lineP, transform: `scale(${interpolate(lineP, [0, 1], [0.55, 1])})`, color: C.white, fontSize: size, fontWeight: 900, maxWidth: 1000, lineHeight: 1.05, padding: "0 30px" }}>
+        {line}
       </div>
     </AbsoluteFill>
   );
@@ -190,25 +197,34 @@ const Cta: React.FC = () => {
 
 const fadeT = (d = 8) => ({ presentation: fade(), timing: linearTiming({ durationInFrames: d }) });
 
-export const DemoReel: React.FC = () => {
+export const DemoReel: React.FC<{ hook?: HookCard[] }> = ({ hook = GRECHKA_HOOK }) => {
   const [handle] = useState(() => delayRender("fonts"));
   useEffect(() => {
     loadAllFonts().then(() => continueRender(handle)).catch(() => continueRender(handle));
   }, [handle]);
 
+  // Хук собираем из пропса: N карточек боли → слайд-удар в НАДОЕЛО
+  const hookEls: React.ReactNode[] = [];
+  hook.forEach((c, i) => {
+    const last = i === hook.length - 1;
+    hookEls.push(
+      <TransitionSeries.Sequence key={`h${i}`} durationInFrames={last ? 32 : 24}>
+        <Pain label={c.label} line={c.line} size={c.size} />
+      </TransitionSeries.Sequence>
+    );
+    hookEls.push(
+      last ? (
+        <TransitionSeries.Transition key={`ht${i}`} presentation={slide({ direction: "from-bottom" })} timing={linearTiming({ durationInFrames: 8 })} />
+      ) : (
+        <TransitionSeries.Transition key={`ht${i}`} {...fadeT(6)} />
+      )
+    );
+  });
+
   return (
     <AbsoluteFill style={{ backgroundColor: C.dark }}>
       <TransitionSeries>
-        <TransitionSeries.Sequence durationInFrames={24}>
-          <Pain day="Понедельник" word="Гречка." />
-        </TransitionSeries.Sequence>
-        <TransitionSeries.Transition {...fadeT(6)} />
-
-        <TransitionSeries.Sequence durationInFrames={32}>
-          <Pain day="Среда" word="Опять гречка." size={112} />
-        </TransitionSeries.Sequence>
-        <TransitionSeries.Transition presentation={slide({ direction: "from-bottom" })} timing={linearTiming({ durationInFrames: 8 })} />
-
+        {hookEls}
         <TransitionSeries.Sequence durationInFrames={44}>
           <Nadoelo />
         </TransitionSeries.Sequence>

@@ -1,7 +1,7 @@
 import React from "react";
 import { Composition } from "remotion";
 import { GrechkaReel, REEL_DURATION, FPS } from "./GrechkaReel";
-import { DemoReel, DEMO_DURATION, DEMO_FPS } from "./DemoReel";
+import { DemoReel, DEMO_DURATION, DEMO_FPS, GRECHKA_HOOK } from "./DemoReel";
 
 export const RemotionRoot: React.FC = () => {
   return (
@@ -21,6 +21,7 @@ export const RemotionRoot: React.FC = () => {
         fps={DEMO_FPS}
         width={1080}
         height={1920}
+        defaultProps={{ hook: GRECHKA_HOOK }}
       />
     </>
   );
