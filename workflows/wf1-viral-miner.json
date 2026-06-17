@@ -1,0 +1,127 @@
+{
+  "name": "WF1 - Viral Miner (Apify)",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## WF1 — Viral Miner\nРаз в день скрапит вирусные ролики у конкурентов и по нишевым хэштегам (Apify),\nфильтрует по engagement velocity + свежести, прогоняет через LLM-гейт релевантности,\nи кладёт победителей в Sheets со status=winner.\n\n➡️ Сиды (аккаунты/хэштеги) — в ноде 'Seeds' и в channel-dna.\n➡️ Нужен APIFY_TOKEN. Актёры: clockworks~tiktok-scraper, apify~instagram-scraper.\n\n⚖️ Клонируем СКЕЛЕТ/формулу, не контент (см. docs).",
+        "height": 280,
+        "width": 420
+      },
+      "id": "wf1-note",
+      "name": "Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [140, 40]
+    },
+    {
+      "parameters": { "rule": { "interval": [ { "field": "days", "triggerAtHour": 5 } ] } },
+      "id": "wf1-trigger",
+      "name": "Daily 05:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [220, 420]
+    },
+    {
+      "parameters": {
+        "assignments": { "assignments": [
+          { "id": "h", "name": "hashtags", "value": "=[\"чтоприготовить\",\"планпитания\",\"mealprep\",\"быстрыерецепты\"]", "type": "array" },
+          { "id": "p", "name": "profiles", "value": "=[\"COMPETITOR_1\",\"COMPETITOR_2\"]", "type": "array" },
+          { "id": "n", "name": "min_likes", "value": "1000", "type": "string" }
+        ] },
+        "options": {}
+      },
+      "id": "wf1-seeds",
+      "name": "Seeds",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [440, 420]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.apify.com/v2/acts/clockworks~tiktok-scraper/run-sync-get-dataset-items?token={{ $env.APIFY_TOKEN }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"hashtags\": {{ JSON.stringify($json.hashtags) }},\n  \"profiles\": {{ JSON.stringify($json.profiles) }},\n  \"resultsPerPage\": 20,\n  \"shouldDownloadVideos\": false\n}",
+        "options": { "timeout": 120000 }
+      },
+      "id": "wf1-apify",
+      "name": "Apify scrape",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [660, 420]
+    },
+    {
+      "parameters": {
+        "jsItems": "// нормализуем, считаем engagement velocity, фильтруем по порогу+свежести, топ-N\nconst minLikes = Number($('Seeds').first().json.min_likes || 1000);\nconst raw = items.flatMap(i => Array.isArray(i.json) ? i.json : (i.json.items || [i.json]));\nconst now = Date.now();\nconst mapped = raw.map(v => {\n  const likes = v.diggCount ?? v.likesCount ?? v.likes ?? 0;\n  const views = v.playCount ?? v.videoViewCount ?? v.views ?? 0;\n  const created = (v.createTimeISO ? new Date(v.createTimeISO).getTime() : now);\n  const ageDays = Math.max(1, (now - created) / 86400000);\n  return {\n    src_url: v.webVideoUrl || v.url || v.videoUrl || '',\n    src_platform: v.webVideoUrl ? 'tiktok' : 'instagram',\n    src_views: views, src_likes: likes,\n    src_caption: (v.text || v.caption || '').slice(0, 500),\n    src_velocity: Math.round(likes / ageDays),\n    age_days: Math.round(ageDays)\n  };\n});\nconst kept = mapped.filter(v => v.src_likes >= minLikes && v.age_days <= 21)\n  .sort((a,b) => b.src_velocity - a.src_velocity)\n  .slice(0, 10);\nreturn kept.map(json => ({ json }));",
+        "mode": "runOnceForAllItems",
+        "language": "javaScript"
+      },
+      "id": "wf1-filter",
+      "name": "Filter winners",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [880, 420]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "sendHeaders": true,
+        "headerParameters": { "parameters": [
+          { "name": "x-api-key", "value": "={{ $env.ANTHROPIC_API_KEY }}" },
+          { "name": "anthropic-version", "value": "2023-06-01" },
+          { "name": "content-type", "value": "application/json" }
+        ] },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"{{ $env.LLM_MODEL_FAST }}\",\n  \"max_tokens\": 400,\n  \"system\": \"Ты гейт релевантности для контент-завода FoodGenius (AI-план питания + список покупок). Оцени, ложится ли вирусный ролик на нашу нишу И можно ли органично вшить наш продукт. Верни СТРОГО JSON: {relevant: true/false, relevance_score: 0-100, mapped_archetype: id, why: '...'}.\",\n  \"messages\": [ { \"role\": \"user\", \"content\": \"Ролик: подпись={{ ($json.src_caption||'').replace(/\\\"/g,'').replace(/\\n/g,' ') }}; лайки={{ $json.src_likes }}; просмотры={{ $json.src_views }}. Архетипы: pain_demo, feature_demo, comparison, listicle, pov_relatable, lifehack, myth_edu. Только JSON.\" } ]\n}",
+        "options": {}
+      },
+      "id": "wf1-gate",
+      "name": "Relevance gate (Claude)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1100, 420]
+    },
+    {
+      "parameters": {
+        "jsItems": "// оставить только релевантные, собрать строку winner\nconst src = $('Filter winners').item.json;\nlet txt = $json?.content?.[0]?.text || '{}';\nconst m = txt.match(/\\{[\\s\\S]*\\}/); if (m) txt = m[0];\nlet g = {}; try { g = JSON.parse(txt); } catch(e) {}\nif (!g.relevant) return [];\nreturn [{ json: {\n  id: Date.now() + '-' + Math.floor(Math.random()*1000),\n  status: 'winner',\n  source_type: 'clone',\n  src_url: src.src_url,\n  src_platform: src.src_platform,\n  src_views: src.src_views,\n  src_likes: src.src_likes,\n  src_velocity: src.src_velocity,\n  src_caption: src.src_caption,\n  relevance_score: g.relevance_score ?? '',\n  format_id: g.mapped_archetype ?? '',\n  platforms: 'youtube,instagram,threads',\n  created_at: new Date().toISOString(),\n  notes: g.why ?? ''\n}}];",
+        "mode": "runOnceForEachItem",
+        "language": "javaScript"
+      },
+      "id": "wf1-decide",
+      "name": "Keep relevant",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1320, 420]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": { "__rl": true, "value": "={{ $env.GOOGLE_SHEET_ID }}", "mode": "id" },
+        "sheetName": { "__rl": true, "value": "={{ $env.GOOGLE_SHEET_TAB }}", "mode": "name" },
+        "columns": { "mappingMode": "autoMapInputData", "value": {} },
+        "options": {}
+      },
+      "id": "wf1-append",
+      "name": "Append winners",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [1540, 420],
+      "credentials": { "googleSheetsOAuth2Api": { "id": "REPLACE_ME", "name": "Google Sheets account" } }
+    }
+  ],
+  "connections": {
+    "Daily 05:00": { "main": [ [ { "node": "Seeds", "type": "main", "index": 0 } ] ] },
+    "Seeds": { "main": [ [ { "node": "Apify scrape", "type": "main", "index": 0 } ] ] },
+    "Apify scrape": { "main": [ [ { "node": "Filter winners", "type": "main", "index": 0 } ] ] },
+    "Filter winners": { "main": [ [ { "node": "Relevance gate (Claude)", "type": "main", "index": 0 } ] ] },
+    "Relevance gate (Claude)": { "main": [ [ { "node": "Keep relevant", "type": "main", "index": 0 } ] ] },
+    "Keep relevant": { "main": [ [ { "node": "Append winners", "type": "main", "index": 0 } ] ] }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" },
+  "pinData": {},
+  "tags": [ { "name": "content-zavod" } ]
+}

@@ -1,0 +1,160 @@
+{
+  "name": "WF2 - Reverse-Engineer + Remix",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## WF2 — Reverse-Engineer + Remix\nstatus=winner → транскрибация ролика → Claude разбирает структуру (beat-sheet: хук, хроно, ЗАЧЕМ каждый бит)\nи ПЕРЕСОБИРАЕТ ту же формулу под FoodGenius (свой топик/боль/CTA) → status=scripted.\n\nВыход shotlist совместим с WF3.\nПромпт: prompts/reverse-engineer.md\n➡️ Вставь channel-dna в ноду 'Channel DNA'.\n➡️ Транскрибация: AssemblyAI/Whisper (нода-плейсхолдер).",
+        "height": 280,
+        "width": 420
+      },
+      "id": "wf2-note",
+      "name": "Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [140, 40]
+    },
+    {
+      "parameters": { "rule": { "interval": [ { "field": "hours", "hoursInterval": 1 } ] } },
+      "id": "wf2-trigger",
+      "name": "Every hour",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [220, 440]
+    },
+    {
+      "parameters": {
+        "operation": "read",
+        "documentId": { "__rl": true, "value": "={{ $env.GOOGLE_SHEET_ID }}", "mode": "id" },
+        "sheetName": { "__rl": true, "value": "={{ $env.GOOGLE_SHEET_TAB }}", "mode": "name" },
+        "filtersUI": { "values": [ { "lookupColumn": "status", "lookupValue": "winner" } ] },
+        "options": {}
+      },
+      "id": "wf2-read",
+      "name": "Read winners",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [440, 440],
+      "credentials": { "googleSheetsOAuth2Api": { "id": "REPLACE_ME", "name": "Google Sheets account" } }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.assemblyai.com/v2/transcript",
+        "sendHeaders": true,
+        "headerParameters": { "parameters": [
+          { "name": "authorization", "value": "={{ $env.ASSEMBLYAI_API_KEY }}" },
+          { "name": "content-type", "value": "application/json" }
+        ] },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"audio_url\": \"{{ $json.src_url }}\",\n  \"language_detection\": true\n}",
+        "options": {},
+        "onError": "continueRegularOutput"
+      },
+      "id": "wf2-transcribe",
+      "name": "Transcribe (AssemblyAI)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [660, 440]
+    },
+    {
+      "parameters": { "amount": 30, "unit": "seconds" },
+      "id": "wf2-wait",
+      "name": "Wait transcript",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [880, 440],
+      "webhookId": "wf2-wait-hook"
+    },
+    {
+      "parameters": {
+        "url": "=https://api.assemblyai.com/v2/transcript/{{ $json.id }}",
+        "sendHeaders": true,
+        "headerParameters": { "parameters": [ { "name": "authorization", "value": "={{ $env.ASSEMBLYAI_API_KEY }}" } ] },
+        "options": {},
+        "onError": "continueRegularOutput"
+      },
+      "id": "wf2-getscript",
+      "name": "Get transcript",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1100, 440]
+    },
+    {
+      "parameters": {
+        "assignments": { "assignments": [
+          { "id": "d", "name": "channel_dna", "value": "ВСТАВЬ СЮДА содержимое config/channel-dna.yaml", "type": "string" }
+        ] },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "wf2-dna",
+      "name": "Channel DNA",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1320, 440]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "sendHeaders": true,
+        "headerParameters": { "parameters": [
+          { "name": "x-api-key", "value": "={{ $env.ANTHROPIC_API_KEY }}" },
+          { "name": "anthropic-version", "value": "2023-06-01" },
+          { "name": "content-type", "value": "application/json" }
+        ] },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"{{ $env.LLM_MODEL_SMART }}\",\n  \"max_tokens\": 3000,\n  \"system\": \"Ты разбираешь вирусные короткие видео и пересобираешь их под наш продукт, НЕ копируя контент (клонируем формулу/структуру, не кадры). CHANNEL DNA: {{ $('Channel DNA').item.json.channel_dna }}. Верни СТРОГО JSON: {beat_sheet:[{t,beat,purpose}], hook_type, our:{hook, script, cta, mapped_archetype, shotlist:[{scene,voiceover,caption,visual_prompt,duration_sec}]}}. visual_prompt на английском, аппетитная еда/демо app, вертикаль 9:16, без текста на кадре.\",\n  \"messages\": [ { \"role\": \"user\", \"content\": \"Оригинал-победитель: транскрипт={{ ($json.text || $('Read winners').item.json.src_caption || '').replace(/\\\"/g,'').replace(/\\n/g,' ').slice(0,1500) }}; подпись={{ ($('Read winners').item.json.src_caption||'').replace(/\\\"/g,'').replace(/\\n/g,' ') }}; лайки={{ $('Read winners').item.json.src_likes }}. Разбери структуру и пересобери ту же формулу под FoodGenius. Только JSON.\" } ]\n}",
+        "options": {}
+      },
+      "id": "wf2-llm",
+      "name": "Reverse + Remix (Claude)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1540, 440]
+    },
+    {
+      "parameters": {
+        "jsItems": "const row = $('Read winners').item.json;\nlet txt = $json?.content?.[0]?.text || '{}';\nconst m = txt.match(/\\{[\\s\\S]*\\}/); if (m) txt = m[0];\nlet p = {}; try { p = JSON.parse(txt); } catch(e) {}\nconst our = p.our || {};\nreturn { json: {\n  id: row.id,\n  status: 'scripted',\n  hook: our.hook || '',\n  script: our.script || '',\n  shotlist_json: JSON.stringify(our.shotlist || []),\n  beat_sheet_json: JSON.stringify(p.beat_sheet || []),\n  hook_type: p.hook_type || '',\n  format_id: our.mapped_archetype || row.format_id || ''\n}};",
+        "mode": "runOnceForEachItem",
+        "language": "javaScript"
+      },
+      "id": "wf2-parse",
+      "name": "Build scripted",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1760, 440]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": { "__rl": true, "value": "={{ $env.GOOGLE_SHEET_ID }}", "mode": "id" },
+        "sheetName": { "__rl": true, "value": "={{ $env.GOOGLE_SHEET_TAB }}", "mode": "name" },
+        "columns": { "mappingMode": "autoMapInputData", "matchingColumns": [ "id" ], "value": {} },
+        "options": {}
+      },
+      "id": "wf2-update",
+      "name": "Update Sheet",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [1980, 440],
+      "credentials": { "googleSheetsOAuth2Api": { "id": "REPLACE_ME", "name": "Google Sheets account" } }
+    }
+  ],
+  "connections": {
+    "Every hour": { "main": [ [ { "node": "Read winners", "type": "main", "index": 0 } ] ] },
+    "Read winners": { "main": [ [ { "node": "Transcribe (AssemblyAI)", "type": "main", "index": 0 } ] ] },
+    "Transcribe (AssemblyAI)": { "main": [ [ { "node": "Wait transcript", "type": "main", "index": 0 } ] ] },
+    "Wait transcript": { "main": [ [ { "node": "Get transcript", "type": "main", "index": 0 } ] ] },
+    "Get transcript": { "main": [ [ { "node": "Channel DNA", "type": "main", "index": 0 } ] ] },
+    "Channel DNA": { "main": [ [ { "node": "Reverse + Remix (Claude)", "type": "main", "index": 0 } ] ] },
+    "Reverse + Remix (Claude)": { "main": [ [ { "node": "Build scripted", "type": "main", "index": 0 } ] ] },
+    "Build scripted": { "main": [ [ { "node": "Update Sheet", "type": "main", "index": 0 } ] ] }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" },
+  "pinData": {},
+  "tags": [ { "name": "content-zavod" } ]
+}

@@ -9,8 +9,8 @@
 | Колонка          | Кто пишет | Описание |
 |------------------|-----------|----------|
 | `id`             | WF1/руки  | уникальный id строки (можно автонумерация/uuid) |
-| `status`         | автомат   | idea / scripted / producing / produced / queued / published / error / skipped |
-| `source_type`    | руки/WF1  | `generate` (полный цикл) или `upload` (готовый MP4) |
+| `status`         | автомат   | winner / idea / scripted / producing / produced / queued / published / error / skipped |
+| `source_type`    | руки/WF1  | `clone` (реверс вирусного), `generate` (с нуля) или `upload` (готовый MP4) |
 | `priority`       | руки      | 1–5, влияет на порядок разбора очереди |
 | `trend_score`    | WF1/WF6   | оценка потенциала темы (0–100) |
 | `format_id`      | WF1/WF2   | id формата из channel-dna (what_to_cook, week_plan_demo …) |
@@ -19,6 +19,15 @@
 | `hook`           | WF2       | хук (первые 1–3 сек) |
 | `script`         | WF2       | сценарий / войсовер-текст |
 | `shotlist_json`  | WF2       | JSON-массив сцен (промпты для генерации) |
+| `beat_sheet_json`| WF2       | разбор структуры оригинала (хук/хроно/зачем) |
+| `hook_type`      | WF2       | тип хука победителя (pov, shock_number, …) |
+| `src_url`        | WF1       | ссылка на вирусный ролик-источник |
+| `src_platform`   | WF1       | tiktok / instagram |
+| `src_views`      | WF1       | просмотры источника |
+| `src_likes`      | WF1       | лайки источника |
+| `src_velocity`   | WF1       | лайки/день (скорость разгона) |
+| `src_caption`    | WF1       | подпись источника |
+| `relevance_score`| WF1       | оценка релевантности нише (0–100) |
 | `video_url`      | WF3/руки  | публичный URL готового MP4 |
 | `thumb_url`      | WF3       | обложка (опц.) |
 | `yt_title`       | WF4       | заголовок YouTube |
