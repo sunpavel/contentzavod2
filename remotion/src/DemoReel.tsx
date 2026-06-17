@@ -24,6 +24,17 @@ export const GRECHKA_HOOK: HookCard[] = [
   { label: "Среда", line: "Опять гречка.", size: 112 },
 ];
 
+// Полная «спека» ролика — её готовит ИИ-сценарист из брифа по трендовому видео:
+// хук + месседж (подписи) + выгоды + CTA + акцент-стиль. Один движок, разные ролики.
+export type ReelSpec = {
+  hook?: HookCard[];
+  capOnboarding?: string;
+  capMenu?: string;
+  benefit?: string[];
+  ctaTitle?: string;
+  accent?: string;
+};
+
 const MONT = "Montserrat";
 const DEJA = "DejaVuLocal";
 const fontFamily = `${MONT}, ${DEJA}, sans-serif`;
@@ -141,18 +152,14 @@ const DemoScene: React.FC<{ src: string; caption: string }> = ({ src, caption })
   );
 };
 
-// Бит «ценность»: три строки поп-ином (включая список покупок)
-const Benefit: React.FC = () => {
+// Бит «ценность»: строки поп-ином, последняя — акцентом (месседж из спеки)
+const Benefit: React.FC<{ lines: string[]; accent: string }> = ({ lines, accent }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
-  const lines = [
-    { t: "Готовый план под цель", accent: false },
-    { t: "Считает калории и КБЖУ", accent: false },
-    { t: "+ список покупок", accent: true },
-  ];
   return (
     <AbsoluteFill style={{ ...center, background: "radial-gradient(circle at 50% 30%, #11331f 0%, #0a0a0f 62%)", flexDirection: "column" }}>
-      {lines.map((l, i) => {
+      {lines.map((t, i) => {
+        const last = i === lines.length - 1;
         const p = spring({ frame: frame - i * 11, fps, config: { damping: 13, stiffness: 140 } });
         return (
           <div
@@ -160,13 +167,15 @@ const Benefit: React.FC = () => {
             style={{
               opacity: p,
               transform: `translateY(${interpolate(p, [0, 1], [28, 0])}px) scale(${interpolate(p, [0, 1], [0.8, 1])})`,
-              color: l.accent ? "#34D399" : C.white,
-              fontSize: l.accent ? 92 : 72,
+              color: last ? accent : C.white,
+              fontSize: last ? 92 : 72,
               fontWeight: 900,
               margin: "14px 0",
+              maxWidth: 1000,
+              padding: "0 40px",
             }}
           >
-            {l.t}
+            {t}
           </div>
         );
       })}
@@ -174,7 +183,7 @@ const Benefit: React.FC = () => {
   );
 };
 
-const Cta: React.FC = () => {
+const Cta: React.FC<{ title: string }> = ({ title }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
   const t = spring({ frame, fps, config: { damping: 200 } });
@@ -182,10 +191,8 @@ const Cta: React.FC = () => {
   const pulse = 1 + Math.sin(frame * 0.16) * 0.03;
   return (
     <AbsoluteFill style={{ ...center, backgroundColor: C.green, flexDirection: "column" }}>
-      <div style={{ opacity: t, transform: `translateY(${interpolate(t, [0, 1], [30, 0])}px)`, color: C.white, fontSize: 84, fontWeight: 900, lineHeight: 1.18, marginBottom: 60 }}>
-        Хочешь такой же
-        <br />
-        план питания?
+      <div style={{ opacity: t, transform: `translateY(${interpolate(t, [0, 1], [30, 0])}px)`, color: C.white, fontSize: 84, fontWeight: 900, lineHeight: 1.18, marginBottom: 60, whiteSpace: "pre-line", padding: "0 40px" }}>
+        {title}
       </div>
       <div style={{ transform: `scale(${pill * pulse})`, background: C.white, color: C.green, fontSize: 58, fontWeight: 900, padding: "26px 56px", borderRadius: 60, boxShadow: "0 18px 50px rgba(0,0,0,0.25)" }}>
         {HANDLE}
@@ -197,7 +204,14 @@ const Cta: React.FC = () => {
 
 const fadeT = (d = 8) => ({ presentation: fade(), timing: linearTiming({ durationInFrames: d }) });
 
-export const DemoReel: React.FC<{ hook?: HookCard[] }> = ({ hook = GRECHKA_HOOK }) => {
+export const DemoReel: React.FC<ReelSpec> = ({
+  hook = GRECHKA_HOOK,
+  capOnboarding = "Настрой под себя — 30 секунд",
+  capMenu = "Меню на неделю + рецепты",
+  benefit = ["Готовый план под цель", "Считает калории и КБЖУ", "+ список покупок"],
+  ctaTitle = "Хочешь такой же\nплан питания?",
+  accent = "#34D399",
+}) => {
   const [handle] = useState(() => delayRender("fonts"));
   useEffect(() => {
     loadAllFonts().then(() => continueRender(handle)).catch(() => continueRender(handle));
@@ -231,22 +245,22 @@ export const DemoReel: React.FC<{ hook?: HookCard[] }> = ({ hook = GRECHKA_HOOK 
         <TransitionSeries.Transition {...fadeT(8)} />
 
         <TransitionSeries.Sequence durationInFrames={135}>
-          <DemoScene src={staticFile("clip_onboarding.mp4")} caption="Настрой под себя — 30 секунд" />
+          <DemoScene src={staticFile("clip_onboarding.mp4")} caption={capOnboarding} />
         </TransitionSeries.Sequence>
         <TransitionSeries.Transition {...fadeT(8)} />
 
         <TransitionSeries.Sequence durationInFrames={150}>
-          <DemoScene src={staticFile("clip_menu_real.mp4")} caption="Меню на неделю + рецепты" />
+          <DemoScene src={staticFile("clip_menu_real.mp4")} caption={capMenu} />
         </TransitionSeries.Sequence>
         <TransitionSeries.Transition {...fadeT(8)} />
 
         <TransitionSeries.Sequence durationInFrames={85}>
-          <Benefit />
+          <Benefit lines={benefit} accent={accent} />
         </TransitionSeries.Sequence>
         <TransitionSeries.Transition {...fadeT(8)} />
 
         <TransitionSeries.Sequence durationInFrames={70}>
-          <Cta />
+          <Cta title={ctaTitle} />
         </TransitionSeries.Sequence>
       </TransitionSeries>
     </AbsoluteFill>
