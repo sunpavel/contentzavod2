@@ -1,0 +1,165 @@
+{
+  "name": "WF3 - Generation (fal.ai + Creatomate)",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## WF3 — Генерация видео (Фаза 2)\nstatus=scripted → fal.ai (клипы по shotlist) → Creatomate (монтаж+субтитры+CTA) → status=produced.\n\n⚠️ ЭТО СКЕЛЕТ ОДНОГО КЛИПА. В проде:\n1) цикл по сценам shotlist (Split Out → fal.ai на каждую → склейка);\n2) TTS-озвучка (ElevenLabs/OpenAI) в Creatomate-шаблоне;\n3) polling вместо фикс. Wait;\n4) cost guard ниже ограничивает кол-во в запуске.",
+        "height": 280,
+        "width": 420
+      },
+      "id": "wf3-note",
+      "name": "Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [160, 40]
+    },
+    {
+      "parameters": { "rule": { "interval": [ { "field": "hours", "hoursInterval": 1 } ] } },
+      "id": "wf3-trigger",
+      "name": "Every hour",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [240, 420]
+    },
+    {
+      "parameters": {
+        "operation": "read",
+        "documentId": { "__rl": true, "value": "={{ $env.GOOGLE_SHEET_ID }}", "mode": "id" },
+        "sheetName": { "__rl": true, "value": "={{ $env.GOOGLE_SHEET_TAB }}", "mode": "name" },
+        "filtersUI": { "values": [ { "lookupColumn": "status", "lookupValue": "scripted" } ] },
+        "options": {}
+      },
+      "id": "wf3-read",
+      "name": "Read scripted",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [460, 420],
+      "credentials": { "googleSheetsOAuth2Api": { "id": "REPLACE_ME", "name": "Google Sheets account" } }
+    },
+    {
+      "parameters": {
+        "jsItems": "// COST GUARD: грубый предохранитель — не больше N роликов за запуск\n// (полноценно: суммировать cost_usd за сегодня и сравнить с DAILY_VIDEO_BUDGET_USD)\nconst perVideo = 2.0; // оценка $/ролик\nconst budget = Number($env.DAILY_VIDEO_BUDGET_USD || 20);\nconst maxPerRun = Math.max(1, Math.floor(budget / perVideo));\nreturn items.slice(0, maxPerRun).map(i => {\n  let shot = [];\n  try { shot = JSON.parse(i.json.shotlist_json || '[]'); } catch(e) {}\n  const prompt = (shot[0] && shot[0].visual_prompt) || i.json.topic || 'appetizing food, vertical 9:16';\n  return { json: { ...i.json, _video_prompt: prompt, _est_cost: perVideo }};\n});",
+        "mode": "runOnceForAllItems",
+        "language": "javaScript"
+      },
+      "id": "wf3-guard",
+      "name": "Cost guard",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [680, 420]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://queue.fal.run/{{ $env.FAL_VIDEO_MODEL }}",
+        "sendHeaders": true,
+        "headerParameters": { "parameters": [
+          { "name": "Authorization", "value": "=Key {{ $env.FAL_KEY }}" },
+          { "name": "Content-Type", "value": "application/json" }
+        ] },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"prompt\": \"{{ ($json._video_prompt||'').replace(/\\\"/g,'') }}\",\n  \"aspect_ratio\": \"9:16\"\n}",
+        "options": {}
+      },
+      "id": "wf3-fal-submit",
+      "name": "fal.ai submit",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [900, 420]
+    },
+    {
+      "parameters": { "amount": 90, "unit": "seconds" },
+      "id": "wf3-wait1",
+      "name": "Wait (render)",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [1120, 420],
+      "webhookId": "wf3-wait1-hook"
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.response_url || $json.status_url }}",
+        "sendHeaders": true,
+        "headerParameters": { "parameters": [ { "name": "Authorization", "value": "=Key {{ $env.FAL_KEY }}" } ] },
+        "options": {}
+      },
+      "id": "wf3-fal-result",
+      "name": "fal.ai result",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1340, 420]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.creatomate.com/v1/renders",
+        "sendHeaders": true,
+        "headerParameters": { "parameters": [
+          { "name": "Authorization", "value": "=Bearer {{ $env.CREATOMATE_API_KEY }}" },
+          { "name": "Content-Type", "value": "application/json" }
+        ] },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"template_id\": \"{{ $env.CREATOMATE_TEMPLATE_ID }}\",\n  \"modifications\": {\n    \"Background.source\": \"{{ $json.video?.url || $json.data?.video?.url }}\",\n    \"Subtitles\": \"{{ ($('Cost guard').item.json.hook||'').replace(/\\\"/g,'') }}\",\n    \"CTA\": \"{{ $env.PRODUCT_BOT }}\"\n  }\n}",
+        "options": {}
+      },
+      "id": "wf3-creato",
+      "name": "Creatomate render",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1560, 420]
+    },
+    {
+      "parameters": { "amount": 60, "unit": "seconds" },
+      "id": "wf3-wait2",
+      "name": "Wait (mux)",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [1780, 420],
+      "webhookId": "wf3-wait2-hook"
+    },
+    {
+      "parameters": {
+        "jsItems": "// собрать обновление строки: видео готово\nconst row = $('Cost guard').item.json;\nconst r = Array.isArray($json) ? $json[0] : $json;\nreturn { json: {\n  id: row.id,\n  status: 'produced',\n  video_url: r.url || r.video?.url || '',\n  cost_usd: row._est_cost || ''\n}};",
+        "mode": "runOnceForEachItem",
+        "language": "javaScript"
+      },
+      "id": "wf3-build",
+      "name": "Build produced",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2000, 420]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": { "__rl": true, "value": "={{ $env.GOOGLE_SHEET_ID }}", "mode": "id" },
+        "sheetName": { "__rl": true, "value": "={{ $env.GOOGLE_SHEET_TAB }}", "mode": "name" },
+        "columns": { "mappingMode": "autoMapInputData", "matchingColumns": [ "id" ], "value": {} },
+        "options": {}
+      },
+      "id": "wf3-update",
+      "name": "Update Sheet",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [2220, 420],
+      "credentials": { "googleSheetsOAuth2Api": { "id": "REPLACE_ME", "name": "Google Sheets account" } }
+    }
+  ],
+  "connections": {
+    "Every hour": { "main": [ [ { "node": "Read scripted", "type": "main", "index": 0 } ] ] },
+    "Read scripted": { "main": [ [ { "node": "Cost guard", "type": "main", "index": 0 } ] ] },
+    "Cost guard": { "main": [ [ { "node": "fal.ai submit", "type": "main", "index": 0 } ] ] },
+    "fal.ai submit": { "main": [ [ { "node": "Wait (render)", "type": "main", "index": 0 } ] ] },
+    "Wait (render)": { "main": [ [ { "node": "fal.ai result", "type": "main", "index": 0 } ] ] },
+    "fal.ai result": { "main": [ [ { "node": "Creatomate render", "type": "main", "index": 0 } ] ] },
+    "Creatomate render": { "main": [ [ { "node": "Wait (mux)", "type": "main", "index": 0 } ] ] },
+    "Wait (mux)": { "main": [ [ { "node": "Build produced", "type": "main", "index": 0 } ] ] },
+    "Build produced": { "main": [ [ { "node": "Update Sheet", "type": "main", "index": 0 } ] ] }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" },
+  "pinData": {},
+  "tags": [ { "name": "content-zavod" } ]
+}

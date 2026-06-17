@@ -1,0 +1,94 @@
+{
+  "name": "WF6 - Analytics feedback",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## WF6 — Аналитика → обучение\nРаз в день: тянем метрики опубликованного, считаем perf_score, пишем обратно.\nПобедители влияют на приоритеты WF1 (тренды).\n\n⚠️ Эндпоинт метрик зависит от агрегатора/площадок — сверь с upload-post docs или\nходи в YouTube Data API / IG Graph за статистикой напрямую.",
+        "height": 220,
+        "width": 380
+      },
+      "id": "wf6-note",
+      "name": "Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [200, 80]
+    },
+    {
+      "parameters": { "rule": { "interval": [ { "field": "days", "triggerAtHour": 9 } ] } },
+      "id": "wf6-trigger",
+      "name": "Daily 09:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [240, 360]
+    },
+    {
+      "parameters": {
+        "operation": "read",
+        "documentId": { "__rl": true, "value": "={{ $env.GOOGLE_SHEET_ID }}", "mode": "id" },
+        "sheetName": { "__rl": true, "value": "={{ $env.GOOGLE_SHEET_TAB }}", "mode": "name" },
+        "filtersUI": { "values": [ { "lookupColumn": "status", "lookupValue": "published" } ] },
+        "options": {}
+      },
+      "id": "wf6-read",
+      "name": "Read published",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [460, 360],
+      "credentials": { "googleSheetsOAuth2Api": { "id": "REPLACE_ME", "name": "Google Sheets account" } }
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://api.upload-post.com/api/analytics",
+        "sendHeaders": true,
+        "headerParameters": { "parameters": [ { "name": "Authorization", "value": "=Apikey {{ $env.UPLOAD_POST_API_KEY }}" } ] },
+        "sendQuery": true,
+        "queryParameters": { "parameters": [ { "name": "user", "value": "={{ $env.UPLOAD_POST_PROFILE }}" } ] },
+        "options": {},
+        "onError": "continueRegularOutput"
+      },
+      "id": "wf6-metrics",
+      "name": "Fetch metrics",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [680, 360]
+    },
+    {
+      "parameters": {
+        "jsItems": "// сопоставить метрики со строкой и посчитать perf_score\n// ЗАГЛУШКА: подставь реальный маппинг под ответ агрегатора.\nreturn items.map(i => {\n  const row = i.json;\n  const views = Number(row.views || 0);\n  const likes = Number(row.likes || 0);\n  const perf = Math.round((views * 1) + (likes * 5));\n  return { json: { id: row.id, views, likes, perf_score: perf } };\n});",
+        "mode": "runOnceForAllItems",
+        "language": "javaScript"
+      },
+      "id": "wf6-score",
+      "name": "Compute perf_score",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 360]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": { "__rl": true, "value": "={{ $env.GOOGLE_SHEET_ID }}", "mode": "id" },
+        "sheetName": { "__rl": true, "value": "={{ $env.GOOGLE_SHEET_TAB }}", "mode": "name" },
+        "columns": { "mappingMode": "autoMapInputData", "matchingColumns": [ "id" ], "value": {} },
+        "options": {}
+      },
+      "id": "wf6-update",
+      "name": "Update Sheet",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [1120, 360],
+      "credentials": { "googleSheetsOAuth2Api": { "id": "REPLACE_ME", "name": "Google Sheets account" } }
+    }
+  ],
+  "connections": {
+    "Daily 09:00": { "main": [ [ { "node": "Read published", "type": "main", "index": 0 } ] ] },
+    "Read published": { "main": [ [ { "node": "Fetch metrics", "type": "main", "index": 0 } ] ] },
+    "Fetch metrics": { "main": [ [ { "node": "Compute perf_score", "type": "main", "index": 0 } ] ] },
+    "Compute perf_score": { "main": [ [ { "node": "Update Sheet", "type": "main", "index": 0 } ] ] }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" },
+  "pinData": {},
+  "tags": [ { "name": "content-zavod" } ]
+}

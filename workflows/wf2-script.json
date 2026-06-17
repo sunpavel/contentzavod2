@@ -1,0 +1,114 @@
+{
+  "name": "WF2 - Script + Shotlist",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## WF2 — Сценарий + шот-лист\nstatus=idea → LLM: хук, сценарий, shotlist (промпты для генерации) → status=scripted.\nПромпт: prompts/scriptwriting.md\n\n➡️ Вставь channel-dna в ноду 'Channel DNA'.",
+        "height": 200,
+        "width": 360
+      },
+      "id": "wf2-note",
+      "name": "Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [200, 80]
+    },
+    {
+      "parameters": { "rule": { "interval": [ { "field": "hours", "hoursInterval": 1 } ] } },
+      "id": "wf2-trigger",
+      "name": "Every hour",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [240, 360]
+    },
+    {
+      "parameters": {
+        "operation": "read",
+        "documentId": { "__rl": true, "value": "={{ $env.GOOGLE_SHEET_ID }}", "mode": "id" },
+        "sheetName": { "__rl": true, "value": "={{ $env.GOOGLE_SHEET_TAB }}", "mode": "name" },
+        "filtersUI": { "values": [ { "lookupColumn": "status", "lookupValue": "idea" } ] },
+        "options": {}
+      },
+      "id": "wf2-read",
+      "name": "Read ideas",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [460, 360],
+      "credentials": { "googleSheetsOAuth2Api": { "id": "REPLACE_ME", "name": "Google Sheets account" } }
+    },
+    {
+      "parameters": {
+        "assignments": { "assignments": [
+          { "id": "d1", "name": "channel_dna", "value": "ВСТАВЬ СЮДА содержимое config/channel-dna.yaml", "type": "string" },
+          { "id": "d2", "name": "duration", "value": "30", "type": "string" }
+        ] },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "wf2-dna",
+      "name": "Channel DNA",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [680, 360]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "sendHeaders": true,
+        "headerParameters": { "parameters": [
+          { "name": "x-api-key", "value": "={{ $env.ANTHROPIC_API_KEY }}" },
+          { "name": "anthropic-version", "value": "2023-06-01" },
+          { "name": "content-type", "value": "application/json" }
+        ] },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"{{ $env.LLM_MODEL_SMART }}\",\n  \"max_tokens\": 2500,\n  \"system\": \"Ты сценарист коротких вертикальных видео. CHANNEL DNA: {{ $json.channel_dna }}. Структура: хук(0-3с)->польза->развязка->CTA на {{ $env.PRODUCT_BOT }}. Длина ~{{ $json.duration }}с.\",\n  \"messages\": [ { \"role\": \"user\", \"content\": \"Тема: {{ ($json.topic||'').replace(/\\\"/g,'') }}. Идея: {{ ($json.idea||'').replace(/\\\"/g,'') }}. Формат: {{ $json.format_id }}. Черновик хука: {{ ($json.hook||'').replace(/\\\"/g,'') }}. Верни ТОЛЬКО JSON с ключами hook, script, cta, shotlist(массив сцен: scene, voiceover, caption, visual_prompt(англ), duration_sec).\" } ]\n}",
+        "options": {}
+      },
+      "id": "wf2-llm",
+      "name": "Claude - script",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [900, 360]
+    },
+    {
+      "parameters": {
+        "jsItems": "const row = $('Read ideas').item.json;\nlet txt = $json?.content?.[0]?.text || '{}';\nconst m = txt.match(/\\{[\\s\\S]*\\}/); if (m) txt = m[0];\nlet p = {}; try { p = JSON.parse(txt); } catch(e) {}\nreturn { json: {\n  id: row.id,\n  status: 'scripted',\n  hook: p.hook || row.hook || '',\n  script: p.script || '',\n  shotlist_json: JSON.stringify(p.shotlist || [])\n}};",
+        "mode": "runOnceForEachItem",
+        "language": "javaScript"
+      },
+      "id": "wf2-parse",
+      "name": "Parse script",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1120, 360]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": { "__rl": true, "value": "={{ $env.GOOGLE_SHEET_ID }}", "mode": "id" },
+        "sheetName": { "__rl": true, "value": "={{ $env.GOOGLE_SHEET_TAB }}", "mode": "name" },
+        "columns": { "mappingMode": "autoMapInputData", "matchingColumns": [ "id" ], "value": {} },
+        "options": {}
+      },
+      "id": "wf2-update",
+      "name": "Update Sheet",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [1360, 360],
+      "credentials": { "googleSheetsOAuth2Api": { "id": "REPLACE_ME", "name": "Google Sheets account" } }
+    }
+  ],
+  "connections": {
+    "Every hour": { "main": [ [ { "node": "Read ideas", "type": "main", "index": 0 } ] ] },
+    "Read ideas": { "main": [ [ { "node": "Channel DNA", "type": "main", "index": 0 } ] ] },
+    "Channel DNA": { "main": [ [ { "node": "Claude - script", "type": "main", "index": 0 } ] ] },
+    "Claude - script": { "main": [ [ { "node": "Parse script", "type": "main", "index": 0 } ] ] },
+    "Parse script": { "main": [ [ { "node": "Update Sheet", "type": "main", "index": 0 } ] ] }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" },
+  "pinData": {},
+  "tags": [ { "name": "content-zavod" } ]
+}

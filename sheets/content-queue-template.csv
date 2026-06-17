@@ -1,0 +1,3 @@
+id,status,source_type,priority,trend_score,format_id,topic,idea,hook,script,shotlist_json,video_url,thumb_url,yt_title,yt_desc,yt_tags,ig_caption,threads_text,platforms,publish_at,upload_post_ids,yt_link,ig_link,threads_link,views,likes,perf_score,cost_usd,error_log,created_at,published_at,notes
+1,produced,upload,3,,what_to_cook,Ужин за 10 минут,Пример готового ролика для проверки публикации,,,,"https://example.com/ready-reel.mp4",,,,,,,"youtube,instagram,threads",,,,,,,,,,,2026-06-17,,"пример строки: готовый MP4, ждёт текстов от WF4"
+2,idea,generate,4,72,budget_week,Здоровая неделя за 1500р,Показать сколько стоит неделя правильного питания с планом из бота,,,,,,,,,,,"youtube,instagram,threads",,,,,,,,,,,2026-06-17,,"пример строки: идея на полный цикл генерации"

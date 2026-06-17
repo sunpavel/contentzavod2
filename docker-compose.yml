@@ -1,0 +1,68 @@
+# ============================================================
+#  CONTENT ZAVOD — self-hosted n8n + Postgres
+#  Запуск:  cp .env.example .env  &&  docker compose up -d
+#  UI:      http://localhost:5678
+# ============================================================
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+    volumes:
+      - ./postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  n8n:
+    image: docker.n8n.io/n8nio/n8n:latest
+    restart: unless-stopped
+    ports:
+      - '${N8N_PORT}:5678'
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      # --- база ---
+      - DB_TYPE=postgresdb
+      - DB_POSTGRESDB_HOST=postgres
+      - DB_POSTGRESDB_PORT=5432
+      - DB_POSTGRESDB_DATABASE=${POSTGRES_DB}
+      - DB_POSTGRESDB_USER=${POSTGRES_USER}
+      - DB_POSTGRESDB_PASSWORD=${POSTGRES_PASSWORD}
+      # --- n8n ---
+      - N8N_HOST=${N8N_HOST}
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=${N8N_PROTOCOL}
+      - WEBHOOK_URL=${WEBHOOK_URL}
+      - GENERIC_TIMEZONE=${GENERIC_TIMEZONE}
+      - N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY}
+      # доступ к $env из expression-нод (нужно для ключей API)
+      - N8N_BLOCK_ENV_ACCESS_IN_NODE=false
+      # --- ключи приложения (видны воркфлоу как $env.XXX) ---
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - LLM_MODEL_SMART=${LLM_MODEL_SMART}
+      - LLM_MODEL_FAST=${LLM_MODEL_FAST}
+      - FAL_KEY=${FAL_KEY}
+      - FAL_VIDEO_MODEL=${FAL_VIDEO_MODEL}
+      - CREATOMATE_API_KEY=${CREATOMATE_API_KEY}
+      - CREATOMATE_TEMPLATE_ID=${CREATOMATE_TEMPLATE_ID}
+      - DAILY_VIDEO_BUDGET_USD=${DAILY_VIDEO_BUDGET_USD}
+      - UPLOAD_POST_API_KEY=${UPLOAD_POST_API_KEY}
+      - UPLOAD_POST_PROFILE=${UPLOAD_POST_PROFILE}
+      - GOOGLE_SHEET_ID=${GOOGLE_SHEET_ID}
+      - GOOGLE_SHEET_TAB=${GOOGLE_SHEET_TAB}
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID}
+      - PRODUCT_NAME=${PRODUCT_NAME}
+      - PRODUCT_BOT=${PRODUCT_BOT}
+      - PRODUCT_URL=${PRODUCT_URL}
+    volumes:
+      - ./n8n_data:/home/node/.n8n
+      # общая папка для временных медиа между нодами
+      - ./shared:/data/shared

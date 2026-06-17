@@ -1,0 +1,123 @@
+{
+  "name": "WF5 - Publish (upload-post)",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## WF5 — Публикация\nЧитает строки status=queued, у которых publish_at <= сейчас, и публикует на YouTube/Instagram/Threads через upload-post.\n\n⚠️ Поля запроса к upload-post сверь с их актуальной докой (api.upload-post.com). Здесь — типовая структура.",
+        "height": 220,
+        "width": 360
+      },
+      "id": "wf5-note",
+      "name": "Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [200, 80]
+    },
+    {
+      "parameters": {
+        "rule": { "interval": [ { "field": "minutes", "minutesInterval": 15 } ] }
+      },
+      "id": "wf5-trigger",
+      "name": "Every 15 min",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [240, 360]
+    },
+    {
+      "parameters": {
+        "operation": "read",
+        "documentId": { "__rl": true, "value": "={{ $env.GOOGLE_SHEET_ID }}", "mode": "id" },
+        "sheetName": { "__rl": true, "value": "={{ $env.GOOGLE_SHEET_TAB }}", "mode": "name" },
+        "filtersUI": { "values": [ { "lookupColumn": "status", "lookupValue": "queued" } ] },
+        "options": {}
+      },
+      "id": "wf5-read",
+      "name": "Read queued",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [460, 360],
+      "credentials": { "googleSheetsOAuth2Api": { "id": "REPLACE_ME", "name": "Google Sheets account" } }
+    },
+    {
+      "parameters": {
+        "jsItems": "// оставить только строки, у которых время публикации наступило\nreturn items.filter(i => {\n  const at = i.json.publish_at;\n  if (!at) return true; // нет времени — публикуем сразу\n  return new Date(at).getTime() <= Date.now();\n});",
+        "mode": "runOnceForAllItems",
+        "language": "javaScript"
+      },
+      "id": "wf5-due",
+      "name": "Filter due",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [680, 360]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.upload-post.com/api/upload",
+        "sendHeaders": true,
+        "headerParameters": { "parameters": [ { "name": "Authorization", "value": "=Apikey {{ $env.UPLOAD_POST_API_KEY }}" } ] },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"user\": \"{{ $env.UPLOAD_POST_PROFILE }}\",\n  \"platform\": {{ JSON.stringify(($json.platforms || 'youtube,instagram,threads').split(',').map(s=>s.trim())) }},\n  \"video\": \"{{ $json.video_url }}\",\n  \"title\": \"{{ ($json.yt_title || $json.topic).replace(/\\\"/g,'') }}\",\n  \"description\": \"{{ ($json.yt_desc || '').replace(/\\n/g,' ').replace(/\\\"/g,'') }}\",\n  \"instagram_caption\": \"{{ ($json.ig_caption || '').replace(/\\n/g,' ').replace(/\\\"/g,'') }}\",\n  \"threads_text\": \"{{ ($json.threads_text || '').replace(/\\n/g,' ').replace(/\\\"/g,'') }}\"\n}",
+        "options": {}
+      },
+      "id": "wf5-upload",
+      "name": "upload-post",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [900, 360],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsItems": "// успех\nreturn items.map(i => ({ json: {\n  id: i.json.id ?? $('Filter due').item.json.id,\n  status: 'published',\n  upload_post_ids: JSON.stringify(i.json),\n  published_at: new Date().toISOString()\n}}));",
+        "mode": "runOnceForAllItems",
+        "language": "javaScript"
+      },
+      "id": "wf5-ok",
+      "name": "Build OK",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1120, 280]
+    },
+    {
+      "parameters": {
+        "jsItems": "// ошибка публикации\nreturn items.map(i => ({ json: {\n  id: $('Filter due').item.json.id,\n  status: 'error',\n  error_log: 'publish: ' + (i.json.error?.message || JSON.stringify(i.json)).slice(0,300)\n}}));",
+        "mode": "runOnceForAllItems",
+        "language": "javaScript"
+      },
+      "id": "wf5-err",
+      "name": "Build ERROR",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1120, 460]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": { "__rl": true, "value": "={{ $env.GOOGLE_SHEET_ID }}", "mode": "id" },
+        "sheetName": { "__rl": true, "value": "={{ $env.GOOGLE_SHEET_TAB }}", "mode": "name" },
+        "columns": { "mappingMode": "autoMapInputData", "matchingColumns": [ "id" ], "value": {} },
+        "options": {}
+      },
+      "id": "wf5-update",
+      "name": "Update Sheet",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [1360, 360],
+      "credentials": { "googleSheetsOAuth2Api": { "id": "REPLACE_ME", "name": "Google Sheets account" } }
+    }
+  ],
+  "connections": {
+    "Every 15 min": { "main": [ [ { "node": "Read queued", "type": "main", "index": 0 } ] ] },
+    "Read queued": { "main": [ [ { "node": "Filter due", "type": "main", "index": 0 } ] ] },
+    "Filter due": { "main": [ [ { "node": "upload-post", "type": "main", "index": 0 } ] ] },
+    "upload-post": { "main": [ [ { "node": "Build OK", "type": "main", "index": 0 } ], [ { "node": "Build ERROR", "type": "main", "index": 0 } ] ] },
+    "Build OK": { "main": [ [ { "node": "Update Sheet", "type": "main", "index": 0 } ] ] },
+    "Build ERROR": { "main": [ [ { "node": "Update Sheet", "type": "main", "index": 0 } ] ] }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" },
+  "pinData": {},
+  "tags": [ { "name": "content-zavod" } ]
+}

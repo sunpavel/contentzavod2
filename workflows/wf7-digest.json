@@ -1,0 +1,132 @@
+{
+  "name": "WF7 - Digest + kill-switch",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## WF7 — Дайджест + kill-switch\nДва триггера:\n1) Утром 08:00 → список того, что выйдет сегодня (status=queued), каждым сообщением с кнопкой 🚫 Стоп.\n2) Telegram callback → нажал Стоп → строка переводится в status=skipped (до публикации).\n\nНужен credential Telegram (bot token).",
+        "height": 240,
+        "width": 400
+      },
+      "id": "wf7-note",
+      "name": "Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [180, 40]
+    },
+    {
+      "parameters": { "rule": { "interval": [ { "field": "days", "triggerAtHour": 8 } ] } },
+      "id": "wf7-trigger",
+      "name": "Daily 08:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [240, 320]
+    },
+    {
+      "parameters": {
+        "operation": "read",
+        "documentId": { "__rl": true, "value": "={{ $env.GOOGLE_SHEET_ID }}", "mode": "id" },
+        "sheetName": { "__rl": true, "value": "={{ $env.GOOGLE_SHEET_TAB }}", "mode": "name" },
+        "filtersUI": { "values": [ { "lookupColumn": "status", "lookupValue": "queued" } ] },
+        "options": {}
+      },
+      "id": "wf7-read",
+      "name": "Read queued",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [460, 320],
+      "credentials": { "googleSheetsOAuth2Api": { "id": "REPLACE_ME", "name": "Google Sheets account" } }
+    },
+    {
+      "parameters": {
+        "jsItems": "// оставить только то, что выйдет сегодня\nconst today = new Date().toDateString();\nreturn items.filter(i => {\n  const at = i.json.publish_at; if (!at) return true;\n  return new Date(at).toDateString() === today;\n});",
+        "mode": "runOnceForAllItems",
+        "language": "javaScript"
+      },
+      "id": "wf7-today",
+      "name": "Only today",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [680, 320]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $env.TELEGRAM_CHAT_ID }}",
+        "text": "=📋 Сегодня выйдет:\n*{{ ($json.yt_title || $json.topic) }}*\n🕐 {{ $json.publish_at }}\n{{ $json.video_url ? '🎬 видео готово' : '⚠️ без видео' }}",
+        "additionalFields": {
+          "parse_mode": "Markdown",
+          "reply_markup": "inlineKeyboard"
+        },
+        "replyMarkup": "inlineKeyboard",
+        "inlineKeyboard": { "rows": [ { "row": { "buttons": [ { "text": "🚫 Стоп", "additionalFields": { "callbackData": "=skip:{{ $json.id }}" } } ] } } ] }
+      },
+      "id": "wf7-send",
+      "name": "Telegram digest",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [900, 320],
+      "credentials": { "telegramApi": { "id": "REPLACE_ME", "name": "Telegram account" } }
+    },
+    {
+      "parameters": { "updates": [ "callback_query" ], "additionalFields": {} },
+      "id": "wf7-cb",
+      "name": "On Stop pressed",
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.2,
+      "position": [240, 560],
+      "credentials": { "telegramApi": { "id": "REPLACE_ME", "name": "Telegram account" } },
+      "webhookId": "wf7-cb-hook"
+    },
+    {
+      "parameters": {
+        "jsItems": "// вытащить id из callback_data вида skip:<id>\nconst data = $json.callback_query?.data || '';\nconst id = data.startsWith('skip:') ? data.slice(5) : null;\nreturn id ? [{ json: { id, status: 'skipped' } }] : [];",
+        "mode": "runOnceForAllItems",
+        "language": "javaScript"
+      },
+      "id": "wf7-parsecb",
+      "name": "Parse callback",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 560]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": { "__rl": true, "value": "={{ $env.GOOGLE_SHEET_ID }}", "mode": "id" },
+        "sheetName": { "__rl": true, "value": "={{ $env.GOOGLE_SHEET_TAB }}", "mode": "name" },
+        "columns": { "mappingMode": "autoMapInputData", "matchingColumns": [ "id" ], "value": {} },
+        "options": {}
+      },
+      "id": "wf7-skip",
+      "name": "Mark skipped",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [680, 560],
+      "credentials": { "googleSheetsOAuth2Api": { "id": "REPLACE_ME", "name": "Google Sheets account" } }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $env.TELEGRAM_CHAT_ID }}",
+        "text": "=🚫 Снято с публикации: {{ $json.id }}",
+        "additionalFields": {}
+      },
+      "id": "wf7-confirm",
+      "name": "Confirm",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [900, 560],
+      "credentials": { "telegramApi": { "id": "REPLACE_ME", "name": "Telegram account" } }
+    }
+  ],
+  "connections": {
+    "Daily 08:00": { "main": [ [ { "node": "Read queued", "type": "main", "index": 0 } ] ] },
+    "Read queued": { "main": [ [ { "node": "Only today", "type": "main", "index": 0 } ] ] },
+    "Only today": { "main": [ [ { "node": "Telegram digest", "type": "main", "index": 0 } ] ] },
+    "On Stop pressed": { "main": [ [ { "node": "Parse callback", "type": "main", "index": 0 } ] ] },
+    "Parse callback": { "main": [ [ { "node": "Mark skipped", "type": "main", "index": 0 } ] ] },
+    "Mark skipped": { "main": [ [ { "node": "Confirm", "type": "main", "index": 0 } ] ] }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" },
+  "pinData": {},
+  "tags": [ { "name": "content-zavod" } ]
+}

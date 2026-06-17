@@ -1,0 +1,113 @@
+{
+  "name": "WF4 - Captions (per platform)",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## WF4 — Тексты под площадку\nstatus=produced → LLM генерит yt/ig/threads тексты → status=queued + publish_at.\n\n➡️ Вставь содержимое config/channel-dna.yaml в ноду 'Channel DNA'.\nПромпт: prompts/captions.md",
+        "height": 220,
+        "width": 360
+      },
+      "id": "wf4-note",
+      "name": "Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [200, 80]
+    },
+    {
+      "parameters": { "rule": { "interval": [ { "field": "minutes", "minutesInterval": 30 } ] } },
+      "id": "wf4-trigger",
+      "name": "Every 30 min",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [240, 360]
+    },
+    {
+      "parameters": {
+        "operation": "read",
+        "documentId": { "__rl": true, "value": "={{ $env.GOOGLE_SHEET_ID }}", "mode": "id" },
+        "sheetName": { "__rl": true, "value": "={{ $env.GOOGLE_SHEET_TAB }}", "mode": "name" },
+        "filtersUI": { "values": [ { "lookupColumn": "status", "lookupValue": "produced" } ] },
+        "options": {}
+      },
+      "id": "wf4-read",
+      "name": "Read produced",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [460, 360],
+      "credentials": { "googleSheetsOAuth2Api": { "id": "REPLACE_ME", "name": "Google Sheets account" } }
+    },
+    {
+      "parameters": {
+        "assignments": { "assignments": [
+          { "id": "dna1", "name": "channel_dna", "value": "ВСТАВЬ СЮДА содержимое config/channel-dna.yaml", "type": "string" }
+        ] },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "wf4-dna",
+      "name": "Channel DNA",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [680, 360]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "sendHeaders": true,
+        "headerParameters": { "parameters": [
+          { "name": "x-api-key", "value": "={{ $env.ANTHROPIC_API_KEY }}" },
+          { "name": "anthropic-version", "value": "2023-06-01" },
+          { "name": "content-type", "value": "application/json" }
+        ] },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"{{ $env.LLM_MODEL_FAST }}\",\n  \"max_tokens\": 1200,\n  \"system\": \"Ты SMM-редактор. Пиши тексты под YouTube Shorts, Instagram, Threads в тоне CHANNEL DNA с CTA на {{ $env.PRODUCT_BOT }}. CHANNEL DNA: {{ $json.channel_dna }}. Верни СТРОГО JSON с ключами yt_title, yt_desc, yt_tags, ig_caption, threads_text.\",\n  \"messages\": [ { \"role\": \"user\", \"content\": \"Ролик: тема={{ ($json.topic||'').replace(/\\\"/g,'') }}; хук={{ ($json.hook||'').replace(/\\\"/g,'') }}; суть={{ ($json.script||$json.idea||'').replace(/\\n/g,' ').replace(/\\\"/g,'').slice(0,800) }}. Верни только JSON.\" } ]\n}",
+        "options": {}
+      },
+      "id": "wf4-llm",
+      "name": "Claude - captions",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [900, 360]
+    },
+    {
+      "parameters": {
+        "jsItems": "// распарсить ответ Claude и собрать обновление строки\nreturn items.map(i => {\n  const row = $('Read produced').item.json;\n  let txt = i.json?.content?.[0]?.text || '{}';\n  const m = txt.match(/\\{[\\s\\S]*\\}/); if (m) txt = m[0];\n  let p = {}; try { p = JSON.parse(txt); } catch(e) {}\n  return { json: {\n    id: row.id,\n    status: 'queued',\n    yt_title: p.yt_title || row.topic,\n    yt_desc: p.yt_desc || '',\n    yt_tags: p.yt_tags || '',\n    ig_caption: p.ig_caption || '',\n    threads_text: p.threads_text || '',\n    publish_at: row.publish_at || new Date(Date.now()+3600*1000).toISOString()\n  }};\n});",
+        "mode": "runOnceForEachItem",
+        "language": "javaScript"
+      },
+      "id": "wf4-parse",
+      "name": "Parse + queue",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1120, 360]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": { "__rl": true, "value": "={{ $env.GOOGLE_SHEET_ID }}", "mode": "id" },
+        "sheetName": { "__rl": true, "value": "={{ $env.GOOGLE_SHEET_TAB }}", "mode": "name" },
+        "columns": { "mappingMode": "autoMapInputData", "matchingColumns": [ "id" ], "value": {} },
+        "options": {}
+      },
+      "id": "wf4-update",
+      "name": "Update Sheet",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [1360, 360],
+      "credentials": { "googleSheetsOAuth2Api": { "id": "REPLACE_ME", "name": "Google Sheets account" } }
+    }
+  ],
+  "connections": {
+    "Every 30 min": { "main": [ [ { "node": "Read produced", "type": "main", "index": 0 } ] ] },
+    "Read produced": { "main": [ [ { "node": "Channel DNA", "type": "main", "index": 0 } ] ] },
+    "Channel DNA": { "main": [ [ { "node": "Claude - captions", "type": "main", "index": 0 } ] ] },
+    "Claude - captions": { "main": [ [ { "node": "Parse + queue", "type": "main", "index": 0 } ] ] },
+    "Parse + queue": { "main": [ [ { "node": "Update Sheet", "type": "main", "index": 0 } ] ] }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" },
+  "pinData": {},
+  "tags": [ { "name": "content-zavod" } ]
+}
