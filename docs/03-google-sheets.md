@@ -25,7 +25,7 @@
 | `src_platform`   | WF1       | tiktok / instagram |
 | `src_views`      | WF1       | просмотры источника |
 | `src_likes`      | WF1       | лайки источника |
-| `src_velocity`   | WF1       | лайки/день (скорость разгона) |
+| `src_velocity`   | WF1       | просмотров/час (скорость набора просмотров) |
 | `src_caption`    | WF1       | подпись источника |
 | `relevance_score`| WF1       | оценка релевантности нише (0–100) |
 | `video_url`      | WF3/руки  | публичный URL готового MP4 |
