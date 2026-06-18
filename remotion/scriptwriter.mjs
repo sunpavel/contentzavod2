@@ -21,12 +21,14 @@ if (!key) {
 const model = process.env.LLM_MODEL_SMART || "claude-sonnet-4-6";
 
 const SCHEMA = `ReelSpec = {
-  hook: [{label, line, size}, {label, line, size}],  // 2 карточки боли; line — крупная фраза (size ~150/110)
-  capOnboarding: string,   // подпись над экраном онбординга
-  capMenu: string,         // подпись над экраном меню/плана
-  benefit: [string, string, string],  // 3 строки выгоды; последняя — акцентная
-  ctaTitle: string,        // 2 строки призыва, разделитель \\n
-  accent: string           // hex настроения: зелёный #34D399 / янтарь #F4A623 / роза #E23B30
+  hook: [{label, line, size}, {label, line, size}],
+     // label — короткий КОНТЕКСТ-тег 1-3 слова («Каждый вечер», «В холодильнике»), НЕ "Карточка N"
+     // line — короткая ударная фраза (1-я ≤18 символов, 2-я ≤26), size ~150 и ~110
+  capOnboarding: string,   // подпись над онбордингом (короткая)
+  capMenu: string,         // подпись над меню/планом
+  benefit: [string, string, string],  // 3 коротких строки выгоды; последняя — акцентная
+  ctaTitle: string,        // ТОЛЬКО призыв в 2 строки через \\n; БЕЗ @-хэндла
+  accent: string           // hex: зелёный #34D399 / янтарь #F4A623 / роза #E23B30
 }`;
 
 const system =
@@ -37,6 +39,8 @@ const system =
   `и боли (однообразие еды, лишние траты, выкинутые продукты, «что готовить»). ` +
   `Между вариантами меняй угол/месседж/подписи/CTA/акцент, сохраняя структуру тренда. ` +
   `Каждый ролик — это ReelSpec по схеме: ${SCHEMA} ` +
+  `ЖЁСТКИЕ ПРАВИЛА: без эмодзи и значков (✅🔥 и т.п. — шрифт их не рисует); ` +
+  `короткие ударные фразы; ctaTitle БЕЗ @foodgenius_ai_bot (хэндл добавляется автоматически). ` +
   `Верни СТРОГО JSON-массив из ${N} ReelSpec. Кириллица. Без медицинских обещаний.`;
 
 const body = {
@@ -62,11 +66,20 @@ try {
   console.error("не распарсил ответ модели:", txt.slice(0, 300));
   process.exit(1);
 }
+// Санитайзер: режем эмодзи/значки и @-хэндл (на случай если модель проскочила)
+const EMOJI = /[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}\u{FE0F}\u{200D}\u{1F1E6}-\u{1F1FF}\u{2190}-\u{21FF}]/gu;
+const clean = (s) =>
+  typeof s === "string"
+    ? s.replace(EMOJI, "").replace(/@foodgenius\S*/gi, "").replace(/[ \t]{2,}/g, " ").replace(/ *\n */g, "\n").trim()
+    : s;
+const deep = (o) =>
+  Array.isArray(o) ? o.map(deep) : o && typeof o === "object" ? Object.fromEntries(Object.entries(o).map(([k, v]) => [k, deep(v)])) : clean(o);
+
 mkdirSync(join(root, "props"), { recursive: true });
 const stamp = Date.now();
 specs.forEach((s, i) => {
   const p = join(root, "props", `gen_${stamp}_${i}.json`);
-  writeFileSync(p, JSON.stringify(s, null, 2));
+  writeFileSync(p, JSON.stringify(deep(s), null, 2));
   console.log("✓", p);
 });
 console.log(`\nГотово: ${specs.length} спек → props/. Дальше: npm run render:batch`);
