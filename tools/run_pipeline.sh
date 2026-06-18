@@ -15,23 +15,28 @@ node "$ROOT/tools/extract_brief.mjs"
 echo "▶ 3/4 Сценарист → $N спек (LLM)…"
 node "$ROOT/remotion/scriptwriter.mjs" "$ROOT/mining/brief.json" "$N"
 
-echo "▶ 4/4 Рендер (+ публикация в Postiz, если заданы ключи)…"
-PUBLISH=""
-if [ -n "${POSTIZ_API_KEY:-}" ] && [ -n "${POSTIZ_URL:-}" ]; then PUBLISH="yes"; fi
+echo "▶ 4/4 Рендер (+ публикация, если задан агрегатор)…"
+PUBLISHER=""
+if [ -n "${BLOTATO_API_KEY:-}" ]; then PUBLISHER="blotato";
+elif [ -n "${POSTIZ_API_KEY:-}" ] && [ -n "${POSTIZ_URL:-}" ]; then PUBLISHER="postiz"; fi
 i=0
 for f in "$ROOT"/remotion/run/*.json; do
   out="$ROOT/remotion/out/reel_run_${i}.mp4"
   echo "  → $(basename "$f") → $(basename "$out")"
   node "$ROOT/remotion/render_one.mjs" "$f" "$out"
-  if [ -n "$PUBLISH" ]; then
+  if [ -n "$PUBLISHER" ]; then
     cap=$(node -e "const s=require(process.argv[1]); const h=(s.hook||[]).map(x=>x.line).join(' '); const cta=(s.ctaTitle||'').replace(/\n/g,' '); process.stdout.write(h+'\n\n'+cta+'\n\nAI-план питания и список покупок -> @foodgenius_ai_bot\n#рецепты #чтоприготовить #ужин #mealprep')" "$f")
-    echo "  ▶ публикую в Postiz…"
-    node "$ROOT/tools/publish_postiz.mjs" "$out" "$cap" now || echo "  ⚠ публикация не удалась"
+    echo "  ▶ публикую ($PUBLISHER)…"
+    if [ "$PUBLISHER" = "blotato" ]; then
+      node "$ROOT/tools/publish_blotato.mjs" "$out" "$cap" || echo "  ⚠ публикация не удалась"
+    else
+      node "$ROOT/tools/publish_postiz.mjs" "$out" "$cap" now || echo "  ⚠ публикация не удалась"
+    fi
   fi
   i=$((i + 1))
 done
-if [ -n "$PUBLISH" ]; then
-  echo "✅ Готово: $i роликов отрендерено и опубликовано (Postiz)"
+if [ -n "$PUBLISHER" ]; then
+  echo "✅ Готово: $i роликов отрендерено и опубликовано ($PUBLISHER)"
 else
-  echo "✅ Готово: $i роликов в remotion/out/ (публикация пропущена — нет POSTIZ_URL/POSTIZ_API_KEY)"
+  echo "✅ Готово: $i роликов в remotion/out/ (публикация пропущена — нет ключей агрегатора)"
 fi
