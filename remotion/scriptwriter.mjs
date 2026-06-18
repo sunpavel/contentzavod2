@@ -1,9 +1,10 @@
 // Внутренний ИИ-сценарист: БРИФ (по трендовому видео) → N адаптированных ReelSpec → props/gen_*.json
 // Запуск:  node scriptwriter.mjs <brief.json> [N]
 // Требует ANTHROPIC_API_KEY (+опц. LLM_MODEL_SMART). Дальше: npm run render:batch
-import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdirSync, readdirSync, rmSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
+import { chat } from "../tools/llm.mjs";
 
 const root = dirname(fileURLToPath(import.meta.url));
 const [, , briefPath, nArg] = process.argv;
@@ -46,33 +47,11 @@ const system =
 const userMsg = `БРИФ (из трендового видео):\n${brief}\n\nВерни массив из ${N} ReelSpec.`;
 
 let txt = "[]";
-if (DEEPSEEK) {
-  // DeepSeek — OpenAI-совместимый
-  const model = process.env.DEEPSEEK_MODEL || "deepseek-chat";
-  const r = await fetch("https://api.deepseek.com/chat/completions", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${DEEPSEEK}`, "content-type": "application/json" },
-    body: JSON.stringify({
-      model,
-      max_tokens: 2500,
-      temperature: 1.0,
-      messages: [{ role: "system", content: system }, { role: "user", content: userMsg }],
-    }),
-  });
-  const j = await r.json();
-  if (j?.error) console.error("DeepSeek error:", JSON.stringify(j.error).slice(0, 200));
-  txt = j?.choices?.[0]?.message?.content || "[]";
-} else {
-  // Anthropic
-  const model = process.env.LLM_MODEL_SMART || "claude-sonnet-4-6";
-  const r = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: { "x-api-key": ANTHROPIC, "anthropic-version": "2023-06-01", "content-type": "application/json" },
-    body: JSON.stringify({ model, max_tokens: 2500, system, messages: [{ role: "user", content: userMsg }] }),
-  });
-  const j = await r.json();
-  if (j?.error) console.error("Anthropic error:", JSON.stringify(j.error).slice(0, 200));
-  txt = j?.content?.[0]?.text || "[]";
+try {
+  txt = (await chat(system, userMsg, 2500)) || "[]";
+} catch (e) {
+  console.error(String(e));
+  process.exit(1);
 }
 const m = txt.match(/\[[\s\S]*\]/);
 if (m) txt = m[0];
@@ -92,11 +71,13 @@ const clean = (s) =>
 const deep = (o) =>
   Array.isArray(o) ? o.map(deep) : o && typeof o === "object" ? Object.fromEntries(Object.entries(o).map(([k, v]) => [k, deep(v)])) : clean(o);
 
-mkdirSync(join(root, "props"), { recursive: true });
-const stamp = Date.now();
+// Свежий прогон пишем в чистую папку run/ (ephemeral) — её рендерит пайплайн.
+const outDir = join(root, "run");
+mkdirSync(outDir, { recursive: true });
+for (const f of readdirSync(outDir)) if (f.endsWith(".json")) rmSync(join(outDir, f));
 specs.forEach((s, i) => {
-  const p = join(root, "props", `gen_${stamp}_${i}.json`);
+  const p = join(outDir, `spec_${i}.json`);
   writeFileSync(p, JSON.stringify(deep(s), null, 2));
   console.log("✓", p);
 });
-console.log(`\nГотово: ${specs.length} спек → props/. Дальше: npm run render:batch`);
+console.log(`\nГотово: ${specs.length} спек → run/. Дальше: рендер run/*.json`);

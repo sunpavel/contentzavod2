@@ -12,5 +12,6 @@ postgres_data/
 *.log
 node_modules/
 
-# runtime mining output (сырые данные майнера)
+# runtime output (майнер / бриф)
 mining/winners.json
+mining/brief.json
