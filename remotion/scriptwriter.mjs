@@ -13,12 +13,12 @@ if (!briefPath) {
   process.exit(1);
 }
 const brief = readFileSync(briefPath, "utf8");
-const key = process.env.ANTHROPIC_API_KEY;
-if (!key) {
-  console.error("нет ANTHROPIC_API_KEY в окружении");
+const DEEPSEEK = process.env.DEEPSEEK_API_KEY;
+const ANTHROPIC = process.env.ANTHROPIC_API_KEY;
+if (!DEEPSEEK && !ANTHROPIC) {
+  console.error("нет DEEPSEEK_API_KEY или ANTHROPIC_API_KEY в окружении");
   process.exit(1);
 }
-const model = process.env.LLM_MODEL_SMART || "claude-sonnet-4-6";
 
 const SCHEMA = `ReelSpec = {
   hook: [{label, line, size}, {label, line, size}],
@@ -43,20 +43,37 @@ const system =
   `короткие ударные фразы; ctaTitle БЕЗ @foodgenius_ai_bot (хэндл добавляется автоматически). ` +
   `Верни СТРОГО JSON-массив из ${N} ReelSpec. Кириллица. Без медицинских обещаний.`;
 
-const body = {
-  model,
-  max_tokens: 2500,
-  system,
-  messages: [{ role: "user", content: `БРИФ (из трендового видео):\n${brief}\n\nВерни массив из ${N} ReelSpec.` }],
-};
+const userMsg = `БРИФ (из трендового видео):\n${brief}\n\nВерни массив из ${N} ReelSpec.`;
 
-const r = await fetch("https://api.anthropic.com/v1/messages", {
-  method: "POST",
-  headers: { "x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json" },
-  body: JSON.stringify(body),
-});
-const j = await r.json();
-let txt = j?.content?.[0]?.text || "[]";
+let txt = "[]";
+if (DEEPSEEK) {
+  // DeepSeek — OpenAI-совместимый
+  const model = process.env.DEEPSEEK_MODEL || "deepseek-chat";
+  const r = await fetch("https://api.deepseek.com/chat/completions", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${DEEPSEEK}`, "content-type": "application/json" },
+    body: JSON.stringify({
+      model,
+      max_tokens: 2500,
+      temperature: 1.0,
+      messages: [{ role: "system", content: system }, { role: "user", content: userMsg }],
+    }),
+  });
+  const j = await r.json();
+  if (j?.error) console.error("DeepSeek error:", JSON.stringify(j.error).slice(0, 200));
+  txt = j?.choices?.[0]?.message?.content || "[]";
+} else {
+  // Anthropic
+  const model = process.env.LLM_MODEL_SMART || "claude-sonnet-4-6";
+  const r = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: { "x-api-key": ANTHROPIC, "anthropic-version": "2023-06-01", "content-type": "application/json" },
+    body: JSON.stringify({ model, max_tokens: 2500, system, messages: [{ role: "user", content: userMsg }] }),
+  });
+  const j = await r.json();
+  if (j?.error) console.error("Anthropic error:", JSON.stringify(j.error).slice(0, 200));
+  txt = j?.content?.[0]?.text || "[]";
+}
 const m = txt.match(/\[[\s\S]*\]/);
 if (m) txt = m[0];
 let specs = [];
