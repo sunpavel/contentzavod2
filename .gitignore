@@ -11,3 +11,6 @@ postgres_data/
 .DS_Store
 *.log
 node_modules/
+
+# runtime mining output (сырые данные майнера)
+mining/winners.json

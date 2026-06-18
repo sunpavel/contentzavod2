@@ -15,9 +15,19 @@ WF1 Viral Miner ──► WF2 Извлечение ДНК ──► Сценар
 
 | Шаг | Чем | Файл |
 |-----|-----|------|
+| Майнинг трендов | **EnsembleData** (TT+IG, velocity) | `tools/mine_ensembledata.mjs` → `mining/winners.json` |
 | Извлечение ДНК + бриф | LLM | `prompts/trend-extract.md` |
 | Сценарист (бриф → N спек) | LLM | `remotion/scriptwriter.mjs` + `prompts/scriptwriter.md` |
 | Рендер | Remotion | `npm run render:batch` |
+
+Майнер (живой пример прогона `2026-06-18`):
+```bash
+ENSEMBLEDATA_TOKEN=... node tools/mine_ensembledata.mjs "чтоприготовить,рецепты,ужин" "что приготовить"
+# → топ-10 победителей по просмотрам/час (TikTok), ~6 юнитов
+```
+EnsembleData — основной источник (TT+IG, отдаёт velocity сам); Apify — фолбэк.
+Пример брифа из реального тренда: `mining/brief_example.json`; адаптации сценариста:
+`props/gen_dinner.json` («что на ужин»), `props/gen_quick.json` («лень готовить»).
 
 ## ReelSpec — что варьирует сценарист
 
