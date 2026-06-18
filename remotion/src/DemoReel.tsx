@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import {
   AbsoluteFill,
   OffthreadVideo,
+  Img,
   useCurrentFrame,
   useVideoConfig,
   interpolate,
@@ -63,17 +64,62 @@ const C = {
 const HANDLE = "@foodgenius_ai_bot";
 const center: React.CSSProperties = { fontFamily, justifyContent: "center", alignItems: "center", textAlign: "center" };
 
+// Авто-подгон размера: длинная строка ужимается, чтобы влезть ~в 2 строки (без уродливых переносов)
+const fitSize = (text: string, size: number, maxW = 980) => {
+  const len = [...(text || "")].length || 1;
+  const est = len * 0.6 * size; // ширина в одну строку
+  const maxTwoLines = maxW * 1.9;
+  return est > maxTwoLines ? Math.floor(maxTwoLines / (len * 0.6)) : size;
+};
+
+// Постоянная вотермарка бренда (узнаваемость + защита при репосте)
+const Watermark: React.FC = () => (
+  <AbsoluteFill style={{ pointerEvents: "none" }}>
+    <div
+      style={{
+        position: "absolute",
+        top: 46,
+        left: 54,
+        fontFamily,
+        color: "rgba(255,255,255,0.5)",
+        fontSize: 33,
+        fontWeight: 800,
+        letterSpacing: 0.5,
+        textShadow: "0 2px 12px rgba(0,0,0,0.5)",
+      }}
+    >
+      @foodgenius_ai_bot
+    </div>
+  </AbsoluteFill>
+);
+
 const Pain: React.FC<{ label: string; line: string; size?: number }> = ({ label, line, size = 150 }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
-  const labelP = spring({ frame, fps, config: { damping: 200 } });
-  const lineP = spring({ frame: frame - 6, fps, config: { damping: 11, stiffness: 150 } });
+  const fs = fitSize(line, size);
+  // строка-герой видна и читаема С КАДРА 0 (никакой задержки) — лёгкий settle
+  const lp = spring({ frame, fps, config: { damping: 14, stiffness: 220 } });
+  const lineOp = interpolate(frame, [0, 3], [0.65, 1], { extrapolateRight: "clamp" });
+  const lineSc = interpolate(lp, [0, 1], [0.88, 1]);
+  const labOp = interpolate(frame, [0, 5], [0, 0.9], { extrapolateRight: "clamp" });
   return (
-    <AbsoluteFill style={{ ...center, backgroundColor: C.muted }}>
-      <div style={{ opacity: labelP, transform: `translateY(${interpolate(labelP, [0, 1], [-34, 0])}px)`, color: C.sub, fontSize: 48, fontWeight: 700, letterSpacing: 5, marginBottom: 28, maxWidth: 980, padding: "0 40px" }}>
+    <AbsoluteFill style={{ ...center, background: "radial-gradient(circle at 50% 42%, #2c2c36 0%, #16161c 72%)" }}>
+      <div style={{ opacity: labOp, color: C.sub, fontSize: 44, fontWeight: 800, letterSpacing: 5, marginBottom: 20, maxWidth: 980, padding: "0 40px" }}>
         {label.toUpperCase()}
       </div>
-      <div style={{ opacity: lineP, transform: `scale(${interpolate(lineP, [0, 1], [0.55, 1])})`, color: C.white, fontSize: size, fontWeight: 900, maxWidth: 1000, lineHeight: 1.05, padding: "0 30px" }}>
+      <div
+        style={{
+          opacity: lineOp,
+          transform: `scale(${lineSc})`,
+          color: C.white,
+          fontSize: fs,
+          fontWeight: 900,
+          maxWidth: 1000,
+          lineHeight: 1.04,
+          padding: "0 30px",
+          textShadow: "0 6px 30px rgba(0,0,0,0.5)",
+        }}
+      >
         {line}
       </div>
     </AbsoluteFill>
@@ -119,7 +165,17 @@ const PhoneVideo: React.FC<{ src: string }> = ({ src }) => {
       }}
     >
       <div style={{ width: screenW, height: screenH, borderRadius: 44, overflow: "hidden", background: "#0a0a0f" }}>
-        <OffthreadVideo src={src} muted style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+        <OffthreadVideo
+          src={src}
+          muted
+          style={{
+            width: "100%",
+            height: "100%",
+            objectFit: "cover",
+            transformOrigin: "50% 16%",
+            transform: `scale(${interpolate(frame, [0, 150], [1.0, 1.07], { extrapolateRight: "clamp" })})`,
+          }}
+        />
       </div>
     </div>
   );
@@ -143,6 +199,7 @@ const DemoScene: React.FC<{ src: string; caption: string }> = ({ src, caption })
           padding: "0 40px",
           opacity: capP,
           transform: `translateY(${interpolate(capP, [0, 1], [-24, 0])}px)`,
+          textShadow: "0 4px 24px rgba(0,0,0,0.6)",
         }}
       >
         {caption}
@@ -168,7 +225,7 @@ const Benefit: React.FC<{ lines: string[]; accent: string }> = ({ lines, accent 
               opacity: p,
               transform: `translateY(${interpolate(p, [0, 1], [28, 0])}px) scale(${interpolate(p, [0, 1], [0.8, 1])})`,
               color: last ? accent : C.white,
-              fontSize: last ? 92 : 72,
+              fontSize: fitSize(t, last ? 92 : 72),
               fontWeight: 900,
               margin: "14px 0",
               maxWidth: 1000,
@@ -191,7 +248,11 @@ const Cta: React.FC<{ title: string }> = ({ title }) => {
   const pulse = 1 + Math.sin(frame * 0.16) * 0.03;
   return (
     <AbsoluteFill style={{ ...center, backgroundColor: C.green, flexDirection: "column" }}>
-      <div style={{ opacity: t, transform: `translateY(${interpolate(t, [0, 1], [30, 0])}px)`, color: C.white, fontSize: 84, fontWeight: 900, lineHeight: 1.18, marginBottom: 60, whiteSpace: "pre-line", padding: "0 40px" }}>
+      <Img
+        src={staticFile("avatar.png")}
+        style={{ width: 156, height: 156, borderRadius: 40, marginBottom: 34, opacity: t, transform: `scale(${interpolate(t, [0, 1], [0.7, 1])})`, boxShadow: "0 16px 50px rgba(0,0,0,0.3)" }}
+      />
+      <div style={{ opacity: t, transform: `translateY(${interpolate(t, [0, 1], [30, 0])}px)`, color: C.white, fontSize: 84, fontWeight: 900, lineHeight: 1.18, marginBottom: 56, whiteSpace: "pre-line", padding: "0 40px" }}>
         {title}
       </div>
       <div style={{ transform: `scale(${pill * pulse})`, background: C.white, color: C.green, fontSize: 58, fontWeight: 900, padding: "26px 56px", borderRadius: 60, boxShadow: "0 18px 50px rgba(0,0,0,0.25)" }}>
@@ -263,6 +324,7 @@ export const DemoReel: React.FC<ReelSpec> = ({
           <Cta title={ctaTitle} />
         </TransitionSeries.Sequence>
       </TransitionSeries>
+      <Watermark />
     </AbsoluteFill>
   );
 };
