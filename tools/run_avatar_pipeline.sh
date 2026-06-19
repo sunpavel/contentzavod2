@@ -25,7 +25,9 @@ if [ -n "${BLOTATO_API_KEY:-}" ]; then PUBLISHER="blotato"; fi
 i=0
 for f in "$ROOT"/remotion/run/*.json; do
   echo "▶ 4/5 [$i] HeyGen — генерю говорящего человека…"
-  SCRIPT=$(node -e "process.stdout.write(require('$f').script||'')")
+  # через файл (надёжно): process.stdout.write в пайп может обрезаться до выхода процесса
+  node -e "require('fs').writeFileSync('/tmp/avscript_${i}.txt', require('$f').script||'')"
+  SCRIPT=$(cat "/tmp/avscript_${i}.txt")
   [ -z "$SCRIPT" ] && { echo "  ⚠ пустой script, пропуск"; i=$((i+1)); continue; }
   node "$ROOT/tools/gen_avatar.mjs" "$SCRIPT" "$ROOT/remotion/public/avatar_talk.mp4" || { echo "  ⚠ HeyGen не отдал видео, пропуск"; i=$((i+1)); continue; }
 
