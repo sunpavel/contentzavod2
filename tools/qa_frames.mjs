@@ -5,7 +5,8 @@ import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
-import { scoreFrames } from "./critic.mjs";
+import { compareToTop } from "./critic.mjs";
+import { fetchTopFrames } from "./fetch_top_frames.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const [, , briefPath, propsPath, comp = "RealCreatorReel", minArg] = process.argv;
@@ -26,11 +27,15 @@ frames.forEach((fr, k) => {
 });
 if (!imgs.length) { console.log("  ⚠ vision-QA: не отрендерил кадры, пропускаю гейт"); process.exit(0); }
 
+let refs = [];
+try { refs = await fetchTopFrames(3); } catch {}
+
 let res;
-try { res = await scoreFrames(brief, imgs); }
+try { res = await compareToTop(brief, imgs, refs); }
 catch (e) { console.log("  ⚠ vision-QA недоступен:", String(e).slice(0, 120)); process.exit(0); }
 if (res._skip) { console.log("  vision-QA пропущен:", res._skip); process.exit(0); }
 
 const sc = res.score ?? 10;
-console.log(`  vision-критик: ${sc}/10` + ((res.issues || []).length ? " — " + res.issues.slice(0, 3).join("; ") : ""));
+const vs = refs.length ? `vs ${refs.length} залетевших` : "без эталонов (ещё нет cover в кэше)";
+console.log(`  vision-критик (${vs}): ${sc}/10` + ((res.issues || []).length ? " — " + res.issues.slice(0, 3).join("; ") : ""));
 process.exit(sc < MIN ? 1 : 0);

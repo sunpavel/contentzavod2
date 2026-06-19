@@ -68,6 +68,10 @@ const push = (items, source) => {
     if (!isRelevant(desc)) { dropped++; continue; } // релевантность-гейт
     const aid = a.aweme_id || "";
     const author = (a.author || {}).unique_id || "";
+    const v = a.video || {};
+    const pick = (o) => (o && Array.isArray(o.url_list) ? o.url_list[0] : "") || "";
+    const cover = pick(v.origin_cover) || pick(v.cover) || "";       // кадр-обложка (для vision-сравнения)
+    const media = pick(v.play_addr) || pick(v.download_addr) || "";  // ссылка на сам ролик
     rows.push({
       desc,
       plays, likes, comments: com,
@@ -75,6 +79,7 @@ const push = (items, source) => {
       eng: plays ? Math.round(((sh * 3 + com * 1.5 + likes) / plays) * 1000) / 10 : 0,
       age_days: Math.round((ageH / 24) * 10) / 10,
       url: a.share_url || (aid ? `https://www.tiktok.com/@${author}/video/${aid}` : ""),
+      cover, media,
       source,
     });
   }

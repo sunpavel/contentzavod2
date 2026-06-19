@@ -36,9 +36,12 @@ export async function scoreScript(brief, spec) {
   return JSON.parse(await chat([{ role: "system", content: sys }, { role: "user", content: user }]));
 }
 
+// image_url-часть с правильным mime по расширению
+const imgPart = (p) => ({ type: "image_url", image_url: { url: `data:${p.endsWith(".png") ? "image/png" : "image/jpeg"};base64,${readFileSync(p).toString("base64")}`, detail: "high" } });
+
 export async function scoreFrames(brief, imagePaths, context = "") {
   if (!KEY) return { score: 8, issues: [], _skip: "нет OPENAI_API_KEY" };
-  const imgs = imagePaths.map((p) => ({ type: "image_url", image_url: { url: `data:image/png;base64,${readFileSync(p).toString("base64")}`, detail: "high" } }));
+  const imgs = imagePaths.map(imgPart);
   const sys =
     `Ты — визуальный критик. Это UGC-ролик «реальный человек за столом рассказывает + вставка приложения + CTA» для продукта FoodGenius. ` +
     `Оцени ИМЕННО ЭТОТ формат по лучшим практикам коротких видео. Бриф тренда — лишь ИСТОЧНИК ХУКА/УГЛА, ` +
@@ -51,12 +54,33 @@ export async function scoreFrames(brief, imagePaths, context = "") {
   return JSON.parse(await chat([{ role: "system", content: sys }, { role: "user", content: user }], 700, VISION_MODEL));
 }
 
-// CLI: node tools/critic.mjs script <brief.json> <spec.json>
-//      node tools/critic.mjs frames <brief.json> <img1.png> [img2.png ...]
+// Сравнение НАШИХ кадров с кадрами РЕАЛЬНЫХ залетевших роликов (эталон с просмотрами).
+export async function compareToTop(brief, ourImagePaths, refImagePaths) {
+  if (!KEY) return { score: 8, issues: [], _skip: "нет OPENAI_API_KEY" };
+  if (!refImagePaths || !refImagePaths.length) return scoreFrames(brief, ourImagePaths); // нет эталонов — обычная оценка
+  const sys =
+    `Ты — визуальный критик. Сравни НАШ ролик с РЕАЛЬНЫМИ залетевшими роликами той же ниши (у них много просмотров). ` +
+    `Наш осознанный формат: реальный человек + вставка приложения + CTA (продукт FoodGenius). От залетевших бери НЕ копию, ` +
+    `а то, что цепляет: хук в кадре, темп, читаемость, эмоция, упаковка. Верни СТРОГО JSON: ` +
+    `{"score":0-10,"issues":["конкретная правка, чтобы приблизиться к уровню залетевших", ...]}. ` +
+    `Не требуй менять наш формат на чужой — оценивай притягательность и упаковку.`;
+  const user = [
+    { type: "text", text: `Ниша/угол:\n${brief}\n\nКАДРЫ ЗАЛЕТЕВШИХ РОЛИКОВ (эталон, много просмотров):` },
+    ...refImagePaths.map(imgPart),
+    { type: "text", text: `КАДРЫ НАШЕГО РОЛИКА (начало → CTA):` },
+    ...ourImagePaths.map(imgPart),
+  ];
+  return JSON.parse(await chat([{ role: "system", content: sys }, { role: "user", content: user }], 700, VISION_MODEL));
+}
+
+// CLI: node tools/critic.mjs script  <brief.json> <spec.json>
+//      node tools/critic.mjs frames  <brief.json> <img1> [img2 ...]
+//      node tools/critic.mjs compare <brief.json> <our1,our2,...> <ref1,ref2,...>
 if (import.meta.url === `file://${process.argv[1]}`) {
   const [, , mode, briefPath, ...rest] = process.argv;
   const brief = readFileSync(briefPath, "utf8");
   if (mode === "script") console.log(JSON.stringify(await scoreScript(brief, JSON.parse(readFileSync(rest[0], "utf8"))), null, 2));
   else if (mode === "frames") console.log(JSON.stringify(await scoreFrames(brief, rest), null, 2));
-  else console.error("usage: critic.mjs script|frames <brief.json> ...");
+  else if (mode === "compare") console.log(JSON.stringify(await compareToTop(brief, rest[0].split(","), (rest[1] || "").split(",").filter(Boolean)), null, 2));
+  else console.error("usage: critic.mjs script|frames|compare <brief.json> ...");
 }
