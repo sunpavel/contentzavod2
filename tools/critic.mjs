@@ -1,6 +1,21 @@
 // Критик контента (OpenAI): текст-рубрика (скрипт vs ДНК топ-ролика) + vision по кадрам рендера.
 // Возвращает {score 0-10, issues[], revised?}. Без ключа — мягко пропускает (score 8).
-import { readFileSync } from "node:fs";
+import { readFileSync, existsSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
+
+const critRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
+// Реальные залетевшие заголовки YouTube (просмотры) из solarn8n — грунт для критика хука.
+const ytRefsText = () => {
+  try {
+    const p = join(critRoot, "mining", "youtube_refs.json");
+    if (!existsSync(p)) return "";
+    const refs = JSON.parse(readFileSync(p, "utf8")).slice(0, 8);
+    if (!refs.length) return "";
+    return "\n\nРЕАЛЬНЫЕ ЗАЛЕТЕВШИЕ РОЛИКИ (YouTube, по просмотрам) — эталон хука:\n" +
+      refs.map((r) => `- «${r.title}» — ${Number(r.views || 0).toLocaleString("ru-RU")} просмотров`).join("\n");
+  } catch { return ""; }
+};
 
 const KEY = process.env.OPENAI_API_KEY;
 const MODEL = process.env.OPENAI_MODEL || "gpt-4o-mini";        // текст-критик (дёшево)
@@ -32,7 +47,7 @@ export async function scoreScript(brief, spec) {
     `а не копируй чужой рецепт. Верни СТРОГО JSON: {"score": 0-10, "issues": ["конкретная правка", ...], "revised": <та же спека, ТЕ ЖЕ поля, улучшенная>}. ` +
     `ЖЁСТКО: в revised ОБЯЗАТЕЛЬНО сохрани продукт FoodGenius (план питания + список покупок, бот в Telegram) и CTA в бота — ` +
     `если правка убирает продукт, это ПЛОХО (низкий score). Если уже сильно (8+): issues=[], revised=null. Кириллица. ${RUBRIC}`;
-  const user = `БРИФ (ДНК топ-ролика — берём только хук/структуру):\n${brief}\n\nСЦЕНАРИЙ (спека):\n${JSON.stringify(spec)}\n\nОцени; при правке сохрани поля спеки И продукт.`;
+  const user = `БРИФ (ДНК топ-ролика — берём только хук/структуру):\n${brief}${ytRefsText()}\n\nСЦЕНАРИЙ (спека):\n${JSON.stringify(spec)}\n\nСравни силу хука с реальными залетевшими выше. Оцени; при правке сохрани поля спеки И продукт.`;
   return JSON.parse(await chat([{ role: "system", content: sys }, { role: "user", content: user }]));
 }
 

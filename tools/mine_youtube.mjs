@@ -7,8 +7,11 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
+// Аутентификация: либо простой API-ключ (AIza…, для чтения публичных данных — РЕКОМЕНДУЕТСЯ),
+// либо OAuth access-token (Bearer) — если есть. Достаточно одного.
 const KEY = process.env.YOUTUBE_API_KEY;
-if (!KEY) { console.error("нет YOUTUBE_API_KEY"); process.exit(1); }
+const TOKEN = process.env.YOUTUBE_ACCESS_TOKEN;
+if (!KEY && !TOKEN) { console.error("нужен YOUTUBE_API_KEY (ключ AIza…) или YOUTUBE_ACCESS_TOKEN (OAuth)"); process.exit(1); }
 const API = "https://www.googleapis.com/youtube/v3";
 
 const keywords = (process.argv[2] ||
@@ -26,8 +29,9 @@ const isRelevant = (t) => NO_FILTER || (t ? RELEVANCE.some((x) => t.toLowerCase(
 
 const get = async (path, params) => {
   const u = new URL(API + path);
-  Object.entries({ ...params, key: KEY }).forEach(([k, v]) => u.searchParams.set(k, v));
-  const r = await fetch(u);
+  const qp = TOKEN ? params : { ...params, key: KEY }; // с OAuth ключ в query не нужен
+  Object.entries(qp).forEach(([k, v]) => u.searchParams.set(k, v));
+  const r = await fetch(u, TOKEN ? { headers: { Authorization: `Bearer ${TOKEN}` } } : undefined);
   const j = await r.json();
   if (j.error) throw new Error("YouTube: " + JSON.stringify(j.error).slice(0, 200));
   return j;

@@ -15,3 +15,6 @@ node_modules/
 # runtime output (майнер / бриф)
 mining/winners.json
 mining/brief.json
+
+mining/youtube_refs.json
+mining/n8n_concept.json
