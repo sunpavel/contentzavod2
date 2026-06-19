@@ -8,7 +8,7 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 N="${1:-1}"
 
 echo "▶ 1/5 Майнинг трендов…"
-node "$ROOT/tools/mine_ensembledata.mjs"
+if [ -n "${YOUTUBE_API_KEY:-}" ]; then node "$ROOT/tools/mine_youtube.mjs"; else node "$ROOT/tools/mine_ensembledata.mjs"; fi
 if ! node -e "const w=require('$ROOT/mining/winners.json');process.exit(Array.isArray(w)&&w.length?0:1)" 2>/dev/null; then
   echo "⏭  Пропускаю: нет трендов и кэша (лимит EnsembleData)."; exit 0
 fi

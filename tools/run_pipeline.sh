@@ -13,8 +13,8 @@ case "$FORMAT" in
   *) echo "неизвестный формат: $FORMAT (demo|creator)"; exit 1 ;;
 esac
 
-echo "▶ 1/4 Майнинг трендов (EnsembleData)…"
-node "$ROOT/tools/mine_ensembledata.mjs"
+echo "▶ 1/4 Майнинг трендов…"
+if [ -n "${YOUTUBE_API_KEY:-}" ]; then node "$ROOT/tools/mine_youtube.mjs"; else node "$ROOT/tools/mine_ensembledata.mjs"; fi
 
 # Если трендов нет совсем (пустой кэш + лимит API) — не гоним слот вхолостую и не постим мусор.
 if ! node -e "const w=require('$ROOT/mining/winners.json'); process.exit(Array.isArray(w)&&w.length?0:1)" 2>/dev/null; then
