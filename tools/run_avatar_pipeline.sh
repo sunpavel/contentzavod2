@@ -24,6 +24,9 @@ if [ -n "${BLOTATO_API_KEY:-}" ]; then PUBLISHER="blotato"; fi
 
 i=0
 for f in "$ROOT"/remotion/run/*.json; do
+  echo "▶ критик скрипта (≤3 итерации, до рендера)…"
+  node "$ROOT/tools/refine_spec.mjs" "$ROOT/mining/brief.json" "$f" 3 || true
+
   echo "▶ 4/5 [$i] HeyGen — генерю говорящего человека…"
   # через файл (надёжно): process.stdout.write в пайп может обрезаться до выхода процесса
   node -e "require('fs').writeFileSync('/tmp/avscript_${i}.txt', require('$f').script||'')"
@@ -31,14 +34,19 @@ for f in "$ROOT"/remotion/run/*.json; do
   [ -z "$SCRIPT" ] && { echo "  ⚠ пустой script, пропуск"; i=$((i+1)); continue; }
   node "$ROOT/tools/gen_avatar.mjs" "$SCRIPT" "$ROOT/remotion/public/avatar_talk.mp4" || { echo "  ⚠ HeyGen не отдал видео, пропуск"; i=$((i+1)); continue; }
 
-  echo "▶ 5/5 [$i] Рендер RealCreatorReel + публикация…"
+  echo "▶ 5/5 [$i] Рендер RealCreatorReel…"
   out="$ROOT/remotion/out/real_run_${i}.mp4"
-  props=$(node -e "const s=require('$f'),m=require('$ROOT/remotion/public/avatar_talk.json');process.stdout.write(JSON.stringify({ctaTitle:s.ctaTitle,accent:s.accent,avatarSrc:'avatar_talk.mp4',avatarFrames:m.frames}))")
-  echo "$props" > "/tmp/rcprops_${i}.json"
+  node -e "const s=require('$f'),m=require('$ROOT/remotion/public/avatar_talk.json');require('fs').writeFileSync('/tmp/rcprops_${i}.json',JSON.stringify({hook:s.hook,ctaTitle:s.ctaTitle,accent:s.accent,avatarSrc:'avatar_talk.mp4',avatarFrames:m.frames}))"
   node "$ROOT/remotion/render_one.mjs" "/tmp/rcprops_${i}.json" "$out" RealCreatorReel
-  if [ -n "$PUBLISHER" ]; then
-    cap=$(node "$ROOT/tools/build_caption.mjs" "$f")
-    node "$ROOT/tools/publish_blotato.mjs" "$out" "$cap" || echo "  ⚠ публикация не удалась"
+
+  # vision-критик как финальный гейт: забракует совсем слабый ролик → не публикуем
+  if node "$ROOT/tools/qa_frames.mjs" "$ROOT/mining/brief.json" "/tmp/rcprops_${i}.json" RealCreatorReel 5; then
+    if [ -n "$PUBLISHER" ]; then
+      cap=$(node "$ROOT/tools/build_caption.mjs" "$f")
+      node "$ROOT/tools/publish_blotato.mjs" "$out" "$cap" || echo "  ⚠ публикация не удалась"
+    fi
+  else
+    echo "  ⏸ vision-критик забраковал ролик — НЕ публикую (ролик в $out для разбора)"
   fi
   i=$((i + 1))
 done

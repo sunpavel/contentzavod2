@@ -13,7 +13,7 @@ import {
   delayRender,
   continueRender,
 } from "remotion";
-import { C, fontFamily, loadAllFonts, Watermark, LINK } from "./brand";
+import { C, fontFamily, fitSize, loadAllFonts, Watermark, LINK } from "./brand";
 
 export const REALCREATOR_FPS = 30;
 
@@ -24,14 +24,43 @@ const APP_CLIPS = ["clip_onboarding.mp4", "clip_menu_real.mp4", "clip_plan.mp4"]
 export type RealCreatorSpec = {
   avatarSrc?: string;    // видео человека (HeyGen), в remotion/public
   avatarFrames?: number; // длина этого видео в кадрах (ставит calculateMetadata)
+  hook?: string;         // текст-хук на экране в первые ~2с (просмотр без звука)
   ctaTitle?: string;
   accent?: string;
 };
 export const REALCREATOR_DEFAULT: RealCreatorSpec = {
   avatarSrc: "avatar_talk.mp4",
   avatarFrames: 480,
+  hook: "Надоело думать,\nчто приготовить?",
   ctaTitle: "Попробуй — это\nбесплатно",
   accent: "#14C7C0",
+};
+
+// Текст-хук на экране в первые секунды — удержание для просмотра без звука
+const HookOverlay: React.FC<{ text: string; accent: string }> = ({ text, accent }) => {
+  const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
+  const p = spring({ frame, fps, config: { damping: 13, stiffness: 150 } });
+  const op = interpolate(frame, [0, 6, 50, 62], [0, 1, 1, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  if (frame > 64) return null;
+  return (
+    <div style={{ position: "absolute", top: 150, left: 0, right: 0, padding: "0 60px", textAlign: "center", opacity: op }}>
+      <div
+        style={{
+          display: "inline-block",
+          background: "rgba(8,10,14,0.72)",
+          borderRadius: 26,
+          padding: "22px 30px",
+          transform: `translateY(${interpolate(p, [0, 1], [-30, 0])}px) scale(${interpolate(p, [0, 1], [0.9, 1])})`,
+          borderBottom: `6px solid ${accent}`,
+        }}
+      >
+        <div style={{ color: "#fff", fontSize: fitSize(text.replace(/\n/g, " "), 80, 920), fontWeight: 900, lineHeight: 1.12, whiteSpace: "pre-line", textShadow: "0 4px 18px rgba(0,0,0,0.6)" }}>
+          {text}
+        </div>
+      </div>
+    </div>
+  );
 };
 
 // Телефон-вставка с записью приложения (перебивка, пока человек говорит)
@@ -106,6 +135,7 @@ const Cta: React.FC<{ title: string; accent: string }> = ({ title, accent }) => 
 export const RealCreatorReel: React.FC<RealCreatorSpec> = ({
   avatarSrc = REALCREATOR_DEFAULT.avatarSrc,
   avatarFrames = REALCREATOR_DEFAULT.avatarFrames,
+  hook = REALCREATOR_DEFAULT.hook,
   ctaTitle = REALCREATOR_DEFAULT.ctaTitle,
   accent = REALCREATOR_DEFAULT.accent,
 }) => {
@@ -136,6 +166,7 @@ export const RealCreatorReel: React.FC<RealCreatorSpec> = ({
             style={{ width: "100%", height: "100%", objectFit: "cover", transform: "scale(2.05)", transformOrigin: "50% 57%" }}
           />
           <AppInset avatarFrames={af} accent={accent!} />
+          {hook ? <HookOverlay text={hook} accent={accent!} /> : null}
           <LowerThird />
         </AbsoluteFill>
       </Sequence>
