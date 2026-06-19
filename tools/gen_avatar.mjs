@@ -31,18 +31,20 @@ if (!videoId) { console.error("HeyGen не принял запрос:", JSON.str
 console.log("✓ задача HeyGen:", videoId, "— жду рендер…");
 
 // 2) поллинг статуса
-let url = "";
+let url = "", durSec = 0;
 for (let i = 0; i < 120; i++) {
   await new Promise((r) => setTimeout(r, 5000));
   const st = await (await api(`/v1/video_status.get?video_id=${videoId}`)).json();
   const s = st?.data?.status;
-  if (s === "completed") { url = st.data.video_url; break; }
+  if (s === "completed") { url = st.data.video_url; durSec = st.data.duration || 0; break; }
   if (s === "failed") { console.error("HeyGen render failed:", JSON.stringify(st?.data?.error || st).slice(0, 300)); process.exit(1); }
   if (i % 4 === 0) console.log(`  …${s || "pending"} (${(i + 1) * 5}s)`);
 }
 if (!url) { console.error("таймаут ожидания HeyGen"); process.exit(1); }
 
-// 3) скачать mp4
+// 3) скачать mp4 + сайдкар с длительностью (для длины композиции)
 const buf = Buffer.from(await (await fetch(url)).arrayBuffer());
 writeFileSync(out, buf);
-console.log("✓ видео человека сохранено:", out, `(${Math.round(buf.length / 1024)} КБ)`);
+const frames = Math.max(1, Math.ceil((durSec || 18) * 30));
+writeFileSync(out.replace(/\.mp4$/, "") + ".json", JSON.stringify({ sec: durSec, frames }, null, 2));
+console.log(`✓ видео человека сохранено: ${out} (${Math.round(buf.length / 1024)} КБ, ${durSec || "?"}с, ${frames} кадров)`);

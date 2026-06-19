@@ -2,3 +2,7 @@ node_modules/
 out/
 .remotion/
 run/
+
+# сгенерированное видео человека (HeyGen) — создаётся на лету
+public/avatar_talk.mp4
+public/avatar_talk.json
