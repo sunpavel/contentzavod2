@@ -26,6 +26,8 @@ if [ -z "${DEEPSEEK_API_KEY:-}" ] && [ -z "${ANTHROPIC_API_KEY:-}" ]; then echo 
 
 if [ "$FORMAT" = "text" ]; then
   "$ROOT/tools/run_text_pipeline.sh" "$N" 2>&1 | tee -a "$LOG"
+elif [ "$FORMAT" = "avatar" ]; then
+  "$ROOT/tools/run_avatar_pipeline.sh" "$N" 2>&1 | tee -a "$LOG"
 else
   FORMAT="$FORMAT" "$ROOT/tools/run_pipeline.sh" "$N" "$FORMAT" 2>&1 | tee -a "$LOG"
 fi

@@ -16,17 +16,26 @@ if (!text || !out) { console.error('usage: node gen_avatar.mjs "<текст>" <o
 const api = (path, opts = {}) =>
   fetch("https://api.heygen.com" + path, { ...opts, headers: { "x-api-key": KEY, "content-type": "application/json", accept: "application/json", ...(opts.headers || {}) } });
 
-// 1) запустить генерацию
-const body = {
+// 1) запустить генерацию (скорость и эмоция — настраиваемые)
+const SPEED = Number(process.env.HEYGEN_SPEED || 1.15);          // чуть быстрее обычного
+const EMOTION = process.env.HEYGEN_EMOTION || "Excited";          // энергия (если голос поддерживает)
+const mkBody = (voice) => ({
   video_inputs: [{
     character: { type: "avatar", avatar_id: AVATAR, avatar_style: "normal" },
-    voice: { type: "text", input_text: text, voice_id: VOICE, speed: 1.05 },
+    voice,
     background: { type: "color", value: "#0e1116" },
   }],
   dimension: { width: W, height: Hh },
-};
-const gen = await (await api("/v2/video/generate", { method: "POST", body: JSON.stringify(body) })).json();
-const videoId = gen?.data?.video_id;
+});
+const baseVoice = { type: "text", input_text: text, voice_id: VOICE, speed: SPEED };
+let gen = await (await api("/v2/video/generate", { method: "POST", body: JSON.stringify(mkBody({ ...baseVoice, emotion: EMOTION })) })).json();
+let videoId = gen?.data?.video_id;
+if (!videoId) {
+  // эмоция могла не поддержаться этим голосом — повтор без неё
+  console.log("⚠ повтор без emotion:", JSON.stringify(gen).slice(0, 140));
+  gen = await (await api("/v2/video/generate", { method: "POST", body: JSON.stringify(mkBody(baseVoice)) })).json();
+  videoId = gen?.data?.video_id;
+}
 if (!videoId) { console.error("HeyGen не принял запрос:", JSON.stringify(gen).slice(0, 300)); process.exit(1); }
 console.log("✓ задача HeyGen:", videoId, "— жду рендер…");
 

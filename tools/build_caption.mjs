@@ -28,8 +28,10 @@ export function buildCaption(spec, platform = "") {
   // 1) Хук — первая строка (она же уходит в заголовок YouTube).
   //    demo-спека: hook[].line ; creator-спека: hookLine
   const hookLine =
-    oneLine(spec.hookLine || (spec.hook || []).map((h) => h.line).join(" ")) ||
-    "Что приготовить на этой неделе?";
+    oneLine(
+      spec.hookLine ||
+      (Array.isArray(spec.hook) ? spec.hook.map((h) => h.line).join(" ") : spec.hook) // demo: hook[] ; avatar: hook-строка
+    ) || "Что приготовить на этой неделе?";
 
   // 2) Месседж: что делает продукт + выгоды из спеки списком (с заглавной).
   //    benefit берём из demo-спеки; для creator оставляем общий месседж.
