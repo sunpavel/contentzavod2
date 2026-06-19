@@ -22,14 +22,16 @@ const accounts = ACC.split(",").map((s) => s.trim()).filter(Boolean).map((p) => 
 });
 if (!accounts.length) { console.error("нет BLOTATO_ACCOUNTS (формат platform:id)"); process.exit(1); }
 
-// 1) публичный URL медиа
+// 1) публичный URL медиа (litterbox — временный хост на 72ч; Blotato тут же
+//    забирает файл в свой media-store, так что временности достаточно. Стопгап — в проде S3/Bunny).
 let url = media;
 if (existsSync(media)) {
   const buf = readFileSync(media);
   const form = new FormData();
   form.append("reqtype", "fileupload");
+  form.append("time", "72h");
   form.append("fileToUpload", new Blob([buf], { type: "video/mp4" }), basename(media));
-  const r = await fetch("https://catbox.moe/user/api.php", { method: "POST", body: form });
+  const r = await fetch("https://litterbox.catbox.moe/resources/internals/api.php", { method: "POST", body: form });
   url = (await r.text()).trim();
   if (!url.startsWith("http")) { console.error("хостинг медиа упал:", url.slice(0, 200)); process.exit(1); }
   console.log("✓ медиа на публичном URL:", url);
@@ -47,13 +49,27 @@ try {
   if (j?.url) mediaUrl = j.url;
 } catch {}
 
+// Instagram запрещает >5 хэштегов — обрезаем хэштег-блок до 5 для этой площадки.
+const capHashtags = (text, max) => {
+  const lines = text.split("\n");
+  for (let i = lines.length - 1; i >= 0; i--) {
+    const tags = lines[i].match(/#[^\s#]+/g);
+    if (tags && tags.length) {
+      if (tags.length > max) lines[i] = tags.slice(0, max).join(" ");
+      break;
+    }
+  }
+  return lines.join("\n");
+};
+
 // 3) публикация по каждому аккаунту
 let ok = 0;
 for (const a of accounts) {
-  const content = { text: caption, platform: a.platform, mediaUrls: [mediaUrl] };
+  const text = a.platform === "instagram" ? capHashtags(caption, 5) : caption;
+  const content = { text, platform: a.platform, mediaUrls: [mediaUrl] };
   const target =
     a.platform === "youtube"
-      ? { targetType: "youtube", title: caption.split("\n")[0].slice(0, 90), privacyStatus: "public" }
+      ? { targetType: "youtube", title: caption.split("\n")[0].slice(0, 90), privacyStatus: "public", shouldNotifySubscribers: false }
       : { targetType: a.platform };
   const body = { post: { accountId: a.id, target, content } };
   const r = await fetch(`${API}/posts`, {
