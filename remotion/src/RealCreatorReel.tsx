@@ -13,7 +13,7 @@ import {
   delayRender,
   continueRender,
 } from "remotion";
-import { C, fontFamily, fitSize, loadAllFonts, Watermark, LINK } from "./brand";
+import { C, fontFamily, fitSize, loadAllFonts, LINK } from "./brand";
 
 export const REALCREATOR_FPS = 30;
 
@@ -103,15 +103,6 @@ const AppInset: React.FC<{ avatarFrames: number; accent: string }> = ({ avatarFr
   );
 };
 
-// Нижняя плашка с ботом — пока человек говорит
-const LowerThird: React.FC = () => (
-  <div style={{ position: "absolute", left: 40, bottom: 60, fontFamily }}>
-    <div style={{ display: "inline-block", background: "rgba(8,10,14,0.66)", color: "#fff", fontSize: 34, fontWeight: 800, padding: "14px 22px", borderRadius: 16 }}>
-      {LINK}
-    </div>
-  </div>
-);
-
 const Cta: React.FC<{ title: string; accent: string }> = ({ title, accent }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
@@ -163,17 +154,15 @@ export const RealCreatorReel: React.FC<RealCreatorSpec> = ({
         <AbsoluteFill style={{ background: "radial-gradient(circle at 50% 35%, #14201f 0%, #0a0a0f 70%)", overflow: "hidden" }}>
           <OffthreadVideo
             src={staticFile(avatarSrc!)}
-            style={{ width: "100%", height: "100%", objectFit: "cover", transform: "scale(2.05)", transformOrigin: "50% 57%" }}
+            style={{ width: "100%", height: "100%", objectFit: "cover", transform: "scale(2.5)", transformOrigin: "50% 50%" }}
           />
           <AppInset avatarFrames={af} accent={accent!} />
           {hook ? <HookOverlay text={hook} accent={accent!} /> : null}
-          <LowerThird />
         </AbsoluteFill>
       </Sequence>
       <Sequence from={af - 10} durationInFrames={ctaFrames + 10}>
         <Cta title={ctaTitle!} accent={accent!} />
       </Sequence>
-      <Watermark />
     </AbsoluteFill>
   );
 };
