@@ -12,7 +12,8 @@ FORMAT="${2:-demo}"
 N="${3:-1}"
 
 # подгрузить .env (ключи: ENSEMBLEDATA_TOKEN, DEEPSEEK_API_KEY, BLOTATO_*, …)
-if [ -f "$ROOT/.env" ]; then set -a; . "$ROOT/.env"; set +a; fi
+# `|| true` — кривая строка в .env не должна ронять слот под set -e
+if [ -f "$ROOT/.env" ]; then set -a; . "$ROOT/.env" || true; set +a; fi
 
 mkdir -p "$ROOT/logs"
 LOG="$ROOT/logs/zavod_$(date +%F).log"

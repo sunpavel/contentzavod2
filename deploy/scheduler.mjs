@@ -2,6 +2,7 @@
 // Запускает 3 слота в день по МСК. Москва = UTC+3 без перехода на летнее время,
 // поэтому считаем смещение фиксированным (-180 минут к UTC).
 import { spawn } from "node:child_process";
+import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
@@ -46,5 +47,23 @@ function run(s) {
   p.on("error", (e) => { console.error("[scheduler] ошибка запуска слота:", String(e)); schedule(); });
 }
 
+// Самопроверка рендера на старте: рендерим тестовый кадр (Chromium/шрифты/GL).
+// Отключить: SELFTEST=0. Не блокирует расписание — просто пишет результат в логи.
+function selfTest(done) {
+  console.log("[selftest] проверяю рендер (Chromium)…");
+  const png = "/tmp/_selftest.png";
+  const props = JSON.stringify({ card: "проверка\nрендера", accent: "#14C7C0", tag: "selftest" });
+  const extra = (process.env.REMOTION_RENDER_FLAGS || "").split(" ").filter(Boolean);
+  const p = spawn("npx", ["remotion", "still", "TextCard", png, `--props=${props}`, "--frame=0", "--log=error", ...extra],
+    { cwd: join(ROOT, "remotion"), stdio: "inherit" });
+  p.on("close", (code) => {
+    if (code === 0 && existsSync(png)) console.log("[selftest] RENDER OK ✓ — рендер в контейнере живой");
+    else console.error(`[selftest] RENDER FAIL ✗ (код ${code}) — видео-слоты, вероятно, упадут; пришли логи`);
+    done();
+  });
+  p.on("error", (e) => { console.error("[selftest] RENDER FAIL ✗:", String(e)); done(); });
+}
+
 console.log("[scheduler] старт. Слоты (МСК): " + SLOTS.map((s) => `${s.hm}/${s.fmt}`).join(" · "));
-schedule();
+if (process.env.SELFTEST === "0") schedule();
+else selfTest(() => schedule());
