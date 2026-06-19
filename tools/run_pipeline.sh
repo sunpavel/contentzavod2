@@ -16,6 +16,12 @@ esac
 echo "▶ 1/4 Майнинг трендов (EnsembleData)…"
 node "$ROOT/tools/mine_ensembledata.mjs"
 
+# Если трендов нет совсем (пустой кэш + лимит API) — не гоним слот вхолостую и не постим мусор.
+if ! node -e "const w=require('$ROOT/mining/winners.json'); process.exit(Array.isArray(w)&&w.length?0:1)" 2>/dev/null; then
+  echo "⏭  Пропускаю слот: нет свежих трендов и нет кэша (вероятно, дневной лимит EnsembleData)."
+  exit 0
+fi
+
 echo "▶ 2/4 Бриф из тренда (LLM)…"
 node "$ROOT/tools/extract_brief.mjs"
 

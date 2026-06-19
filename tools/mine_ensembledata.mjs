@@ -88,7 +88,12 @@ const seen = new Set();
 const winners = rows.sort((a, b) => b.vph - a.vph).filter((r) => r.url && !seen.has(r.url) && seen.add(r.url)).slice(0, 10);
 
 mkdirSync(join(root, "mining"), { recursive: true });
-writeFileSync(join(root, "mining", "winners.json"), JSON.stringify(winners, null, 2));
+// При 0 результатов (часто — дневной лимит API) НЕ затираем кэш прошлого удачного прогона.
+if (winners.length === 0) {
+  console.log("⚠ 0 победителей (возможно, лимит API) — оставляю прошлый кэш mining/winners.json");
+} else {
+  writeFileSync(join(root, "mining", "winners.json"), JSON.stringify(winners, null, 2));
+}
 console.log(`Победителей: ${winners.length} | отфильтровано как нерелевантные: ${dropped}${NO_FILTER ? " (фильтр ВЫКЛ)" : ""} (запросов ~${hashtags.length + keywords.length} юнитов)\n`);
 for (const w of winners) console.log(`  ${String(w.vph).padStart(8)} v/ч | ${String(w.plays).padStart(9)} | eng ${w.eng}% | ${w.age_days}d | ${w.desc.slice(0, 60)}`);
 console.log("\n→ mining/winners.json");
