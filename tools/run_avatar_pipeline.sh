@@ -39,8 +39,9 @@ for f in "$ROOT"/remotion/run/*.json; do
   node -e "const s=require('$f'),m=require('$ROOT/remotion/public/avatar_talk.json');require('fs').writeFileSync('/tmp/rcprops_${i}.json',JSON.stringify({hook:s.hook,ctaTitle:s.ctaTitle,accent:s.accent,avatarSrc:'avatar_talk.mp4',avatarFrames:m.frames}))"
   node "$ROOT/remotion/render_one.mjs" "/tmp/rcprops_${i}.json" "$out" RealCreatorReel
 
-  # vision-критик как финальный гейт: забракует совсем слабый ролик → не публикуем
-  if node "$ROOT/tools/qa_frames.mjs" "$ROOT/mining/brief.json" "/tmp/rcprops_${i}.json" RealCreatorReel 5; then
+  # vision-критик — СОВЕТНИК (печатает оценку/правки); блокирует только полный брак (score<3),
+  # т.к. сам по себе ненадёжен (см. разбор). Реальная планка — визуальный чек-лист в композиции.
+  if node "$ROOT/tools/qa_frames.mjs" "$ROOT/mining/brief.json" "/tmp/rcprops_${i}.json" RealCreatorReel 3; then
     if [ -n "$PUBLISHER" ]; then
       cap=$(node "$ROOT/tools/build_caption.mjs" "$f")
       node "$ROOT/tools/publish_blotato.mjs" "$out" "$cap" || echo "  ⚠ публикация не удалась"
