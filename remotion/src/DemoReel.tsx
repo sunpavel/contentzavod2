@@ -64,7 +64,7 @@ const C = {
   white: "#F5F5F5",
   sub: "#9A9AA3",
 };
-const HANDLE = "@foodgenius_ai_bot";
+const LINK = "t.me/foodgenius_ai_bot"; // ссылка на бота — показываем в кадре и в CTA
 const center: React.CSSProperties = { fontFamily, justifyContent: "center", alignItems: "center", textAlign: "center" };
 
 // Авто-подгон размера: длинная строка ужимается, чтобы влезть ~в 2 строки (без уродливых переносов)
@@ -91,7 +91,7 @@ const Watermark: React.FC = () => (
         textShadow: "0 2px 12px rgba(0,0,0,0.5)",
       }}
     >
-      @foodgenius_ai_bot
+      {LINK}
     </div>
   </AbsoluteFill>
 );
@@ -278,8 +278,8 @@ const Cta: React.FC<{ title: string }> = ({ title }) => {
       <div style={{ opacity: t, transform: `translateY(${interpolate(t, [0, 1], [30, 0])}px)`, color: C.white, fontSize: 84, fontWeight: 900, lineHeight: 1.18, marginBottom: 56, whiteSpace: "pre-line", padding: "0 40px" }}>
         {title}
       </div>
-      <div style={{ transform: `scale(${pill * pulse})`, background: C.white, color: C.green, fontSize: 58, fontWeight: 900, padding: "26px 56px", borderRadius: 60, boxShadow: "0 18px 50px rgba(0,0,0,0.25)" }}>
-        {HANDLE}
+      <div style={{ transform: `scale(${pill * pulse})`, background: C.white, color: C.green, fontSize: 54, fontWeight: 900, padding: "26px 52px", borderRadius: 60, boxShadow: "0 18px 50px rgba(0,0,0,0.25)" }}>
+        {LINK}
       </div>
       <div style={{ opacity: pill, color: C.white, fontSize: 42, fontWeight: 600, marginTop: 30 }}>бесплатно, в Telegram</div>
     </AbsoluteFill>

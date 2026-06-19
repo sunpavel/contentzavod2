@@ -25,7 +25,7 @@ for f in "$ROOT"/remotion/run/*.json; do
   echo "  → $(basename "$f") → $(basename "$out")"
   node "$ROOT/remotion/render_one.mjs" "$f" "$out"
   if [ -n "$PUBLISHER" ]; then
-    cap=$(node -e "const s=require(process.argv[1]); const h=(s.hook||[]).map(x=>x.line).join(' '); const cta=(s.ctaTitle||'').replace(/\n/g,' '); process.stdout.write(h+'\n\n'+cta+'\n\nAI-план питания и список покупок -> @foodgenius_ai_bot\n#рецепты #чтоприготовить #ужин #mealprep')" "$f")
+    cap=$(node "$ROOT/tools/build_caption.mjs" "$f")
     echo "  ▶ публикую ($PUBLISHER)…"
     if [ "$PUBLISHER" = "blotato" ]; then
       node "$ROOT/tools/publish_blotato.mjs" "$out" "$cap" || echo "  ⚠ публикация не удалась"
