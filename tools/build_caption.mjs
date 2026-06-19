@@ -28,11 +28,12 @@ export function buildCaption(spec, platform = "") {
   // 1) Хук — первая строка (она же уходит в заголовок YouTube)
   const hookLine = oneLine((spec.hook || []).map((h) => h.line).join(" ")) || "Что приготовить на этой неделе?";
 
-  // 2) Месседж: коротко что делает продукт (можно опереться на benefit)
+  // 2) Месседж: что делает продукт + выгоды из спеки списком (с заглавной)
+  const cap1 = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
   const benefit = (spec.benefit || []).map(oneLine).filter(Boolean);
   const value =
-    "AI соберёт персональный план питания на неделю и список покупок за 10 секунд." +
-    (benefit.length ? " " + benefit.slice(0, 2).join(". ") + "." : "");
+    "AI соберёт план питания на неделю и список покупок за 10 секунд" +
+    (benefit.length ? ":\n" + benefit.map((b) => "— " + cap1(b)).join("\n") : ".");
 
   // 3) CTA + ссылка на бота (всегда!). Не дублируем «бесплатно», если оно уже в CTA.
   const cta = oneLine(spec.ctaTitle) || "Попробуй";

@@ -14,6 +14,33 @@ const BASE = "https://ensembledata.com/apis";
 const hashtags = (process.argv[2] || "чтоприготовить,рецепты,ужин,mealprep").split(",").map((s) => s.trim()).filter(Boolean);
 const keywords = (process.argv[3] || "что приготовить,идея для ужина").split(",").map((s) => s.trim()).filter(Boolean);
 
+// Релевантность: берём ролик, только если его описание хотя бы КОСВЕННО про еду/готовку/
+// питание/продукты — иначе хэштег-лента приносит залетевший офтоп (тег прилепили к чужому виралу).
+// Список широкий («косвенно подходит»). Расширить: MINE_RELEVANCE="термин,термин". Выключить: MINE_NO_FILTER=1.
+const RELEVANCE = [
+  // готовка / еда
+  "рецепт", "готов", "приготов", "еда", "блюд", "кухн", "вкус", "ужин", "обед", "завтрак", "перекус", "поесть", "покушать", "ланч", "снек", "снэк",
+  // ингредиенты / продукты
+  "продукт", "холодильник", "мясо", "курин", "куриц", "говядин", "фарш", "рыб", "овощ", "фрукт", "яйц", "сыр", "паст", "макарон", "рис", "гречк", "картош", "картоф", "суп", "салат", "соус", "тесто", "выпечк", "десерт", "торт", "перекус",
+  // питание / диета / здоровье
+  "питани", "рацион", "диет", "похуд", "ккал", "калори", "белк", "бжу", "углевод", "жир", " пп", "пп ", "#пп", "меню", "зож", "здоров",
+  // покупки / экономия
+  "покупк", "экономи", "бюджет", "дешев", "недорог",
+  // англ / транслит
+  "meal", "prep", "recipe", "food", "cook", "dinner", "lunch", "breakfast", "grocery", "diet", "calorie", "protein", "healthy", "eat", "tasty", "kitchen",
+  // наш домен
+  "что приготов", "что готов", "идея для", "на ужин", "на неделю", "что съесть", "нечего есть",
+  ...(process.env.MINE_RELEVANCE || "").split(",").map((s) => s.trim().toLowerCase()).filter(Boolean),
+];
+const NO_FILTER = process.env.MINE_NO_FILTER === "1";
+const isRelevant = (desc) => {
+  if (NO_FILTER) return true;
+  const d = (desc || "").toLowerCase();
+  if (!d) return false; // нет описания — не можем подтвердить релевантность, пропускаем
+  return RELEVANCE.some((t) => d.includes(t));
+};
+let dropped = 0;
+
 const get = async (path, params) => {
   const u = new URL(BASE + path);
   Object.entries({ ...params, token: TOKEN }).forEach(([k, v]) => u.searchParams.set(k, v));
@@ -37,10 +64,12 @@ const push = (items, source) => {
     const ct = a.create_time || 0;
     const ageH = ct ? Math.max(1, (now - ct) / 3600) : 1e9;
     if (plays < 5000 || ageH > 24 * 45) continue;
+    const desc = (a.desc || "").replace(/\n/g, " ").slice(0, 120);
+    if (!isRelevant(desc)) { dropped++; continue; } // релевантность-гейт
     const aid = a.aweme_id || "";
     const author = (a.author || {}).unique_id || "";
     rows.push({
-      desc: (a.desc || "").replace(/\n/g, " ").slice(0, 120),
+      desc,
       plays, likes, comments: com,
       vph: Math.round(plays / ageH),
       eng: plays ? Math.round(((sh * 3 + com * 1.5 + likes) / plays) * 1000) / 10 : 0,
@@ -60,6 +89,6 @@ const winners = rows.sort((a, b) => b.vph - a.vph).filter((r) => r.url && !seen.
 
 mkdirSync(join(root, "mining"), { recursive: true });
 writeFileSync(join(root, "mining", "winners.json"), JSON.stringify(winners, null, 2));
-console.log(`Победителей: ${winners.length} (запросов ~${hashtags.length + keywords.length} юнитов)\n`);
+console.log(`Победителей: ${winners.length} | отфильтровано как нерелевантные: ${dropped}${NO_FILTER ? " (фильтр ВЫКЛ)" : ""} (запросов ~${hashtags.length + keywords.length} юнитов)\n`);
 for (const w of winners) console.log(`  ${String(w.vph).padStart(8)} v/ч | ${String(w.plays).padStart(9)} | eng ${w.eng}% | ${w.age_days}d | ${w.desc.slice(0, 60)}`);
 console.log("\n→ mining/winners.json");
