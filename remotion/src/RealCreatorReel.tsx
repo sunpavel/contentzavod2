@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import {
   AbsoluteFill,
   OffthreadVideo,
+  Audio,
   Sequence,
   Img,
   useCurrentFrame,
@@ -114,8 +115,20 @@ export const RealCreatorReel: React.FC<RealCreatorSpec> = ({
   }, [handle]);
   const af = avatarFrames!;
   const ctaFrames = 75;
+  const total = af + ctaFrames;
   return (
     <AbsoluteFill style={{ backgroundColor: C.dark }}>
+      {/* фоновая музыка — тихо под голос, с фейдами; на CTA чуть громче */}
+      <Audio
+        src={staticFile("music.wav")}
+        loop
+        volume={(f) =>
+          interpolate(f, [0, 18, af - 6, af + 8, total - 24, total - 1], [0, 0.12, 0.12, 0.22, 0.22, 0], {
+            extrapolateLeft: "clamp",
+            extrapolateRight: "clamp",
+          })
+        }
+      />
       <Sequence durationInFrames={af}>
         <AbsoluteFill style={{ background: "radial-gradient(circle at 50% 35%, #14201f 0%, #0a0a0f 70%)", overflow: "hidden" }}>
           <OffthreadVideo
