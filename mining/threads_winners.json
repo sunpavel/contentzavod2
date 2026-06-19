@@ -1,0 +1,32 @@
+[
+  {
+    "user": "claire_co__",
+    "text": "My husband used to ruin every diet with late-night snacking. Then my dietitian cousin shared these flourless oat pita breads. Packed with protein, zero guilt.",
+    "likes": 1154, "replies": 101, "reposts": 331, "quotes": 20,
+    "pattern": "история-боль от первого лица -> неожиданное простое решение"
+  },
+  {
+    "user": "officialjewellnoel",
+    "text": "dont beat me up but why is meal prepping okay? you cant even eat chicken 3-4 days after being in the fridge so why do we meal prep for a whole week",
+    "likes": 676, "replies": 210, "reposts": 8, "quotes": 3,
+    "pattern": "провокационный вопрос-челлендж против общепринятого -> спор в комментах"
+  },
+  {
+    "user": "fitmealsdaily",
+    "text": "Day 11 of me posting my meal preps till I hit my goal. consistency is the only cheat code nobody wants to use.",
+    "likes": 1792, "replies": 48, "reposts": 126,
+    "pattern": "сериал/челлендж День N -> подписка ради продолжения"
+  },
+  {
+    "user": "highproteinhacks",
+    "text": "High protein cucumber chicken salad. Save this. Cucumber, onion, tomato, herb-marinated chicken, garlic, chili. 5 minutes, 40g protein.",
+    "likes": 168, "replies": 4, "reposts": 53,
+    "pattern": "save-bait рецепт: список ингредиентов + цифра-выгода"
+  },
+  {
+    "user": "loseitwithlea",
+    "text": "meal preps i cook to maintain my 115lb weight loss. nothing fancy, just the same 4 cheap dinners on rotation.",
+    "likes": 220, "replies": 13, "reposts": 13,
+    "pattern": "социальное доказательство (результат) + ничего сложного"
+  }
+]

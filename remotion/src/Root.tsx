@@ -3,6 +3,7 @@ import { Composition } from "remotion";
 import { GrechkaReel, REEL_DURATION, FPS } from "./GrechkaReel";
 import { DemoReel, DEMO_DURATION, DEMO_FPS, GRECHKA_HOOK } from "./DemoReel";
 import { CreatorReel, CREATOR_DURATION, CREATOR_FPS, CREATOR_DEFAULT } from "./CreatorReel";
+import { TextCard, TEXTCARD_DEFAULT } from "./TextCard";
 
 export const RemotionRoot: React.FC = () => {
   return (
@@ -32,6 +33,15 @@ export const RemotionRoot: React.FC = () => {
         width={1080}
         height={1920}
         defaultProps={CREATOR_DEFAULT}
+      />
+      <Composition
+        id="TextCard"
+        component={TextCard}
+        durationInFrames={1}
+        fps={30}
+        width={1080}
+        height={1350}
+        defaultProps={TEXTCARD_DEFAULT}
       />
     </>
   );
