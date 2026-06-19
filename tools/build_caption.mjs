@@ -3,27 +3,18 @@
 //   platform: youtube | instagram | tiktok | threads  (по умолчанию — универсальная)
 // Можно и импортировать: import { buildCaption } from "./build_caption.mjs"
 import { readFileSync } from "node:fs";
+import { captionConfig } from "./audience.mjs";
 
 export const BOT_URL = "https://t.me/foodgenius_ai_bot";
 export const BOT_HANDLE = "@foodgenius_ai_bot";
 
-// Базовые хэштеги (рус. фуд-ниша) + общие. Платформа может добавить свои.
-const BASE_TAGS = [
-  "#рецепты", "#чтоприготовить", "#ужин", "#планпитания",
-  "#mealprep", "#готовимдома", "#экономия", "#списокпокупок",
-  "#здоровоепитание", "#нейросеть",
-];
-const PLATFORM_TAGS = {
-  youtube: ["#shorts", "#ai"],
-  instagram: ["#reels", "#рилс", "#еда"],
-  tiktok: ["#фуд", "#лайфхак"],
-  threads: [],
-};
+// Запасные хэштеги, если площадка не задана.
+const BASE_TAGS = ["#рецепты", "#чтоприготовить", "#ужин", "#планпитания", "#mealprep"];
 
 const oneLine = (s) => String(s || "").replace(/\s*\n\s*/g, " ").replace(/\s{2,}/g, " ").trim();
 
 export function buildCaption(spec, platform = "") {
-  const p = String(platform || "").toLowerCase();
+  const p = String(platform || spec.platform || "").toLowerCase();
 
   // 1) Хук — первая строка (она же уходит в заголовок YouTube).
   //    demo-спека: hook[].line ; creator-спека: hookLine
@@ -46,8 +37,9 @@ export function buildCaption(spec, platform = "") {
   const free = /бесплатн/i.test(cta) ? "в Telegram" : "Бесплатно, в Telegram";
   const ctaBlock = `${cta} 👇 ${free}:\n${BOT_URL}`;
 
-  // 4) Хэштеги
-  const tags = [...BASE_TAGS, ...(PLATFORM_TAGS[p] || [])];
+  // 4) Хэштеги — из профиля площадки (base + лимит), иначе запасные
+  let tags = BASE_TAGS;
+  try { if (p) { const c = captionConfig(p); tags = (c.base.length ? c.base : BASE_TAGS).slice(0, c.max); } } catch {}
 
   return [hookLine, "", value, "", ctaBlock, "", tags.join(" ")].join("\n");
 }

@@ -3,6 +3,7 @@
 import { readFileSync, existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
+import { hookRule, getPlatform } from "./audience.mjs";
 
 const critRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 // Реальные залетевшие заголовки YouTube (просмотры) из solarn8n — грунт для критика хука.
@@ -47,7 +48,9 @@ export async function scoreScript(brief, spec) {
     `а не копируй чужой рецепт. Верни СТРОГО JSON: {"score": 0-10, "issues": ["конкретная правка", ...], "revised": <та же спека, ТЕ ЖЕ поля, улучшенная>}. ` +
     `ЖЁСТКО: в revised ОБЯЗАТЕЛЬНО сохрани продукт FoodGenius (план питания + список покупок, бот в Telegram) и CTA в бота — ` +
     `если правка убирает продукт, это ПЛОХО (низкий score). Если уже сильно (8+): issues=[], revised=null. Кириллица. ${RUBRIC}`;
-  const user = `БРИФ (ДНК топ-ролика — берём только хук/структуру):\n${brief}${ytRefsText()}\n\nСЦЕНАРИЙ (спека):\n${JSON.stringify(spec)}\n\nСравни силу хука с реальными залетевшими выше. Оцени; при правке сохрани поля спеки И продукт.`;
+  let platRule = "";
+  try { if (spec.platform) platRule = `\nПЛОЩАДКА ${getPlatform(spec.platform).name}: хук должен соответствовать правилу — ${hookRule(spec.platform)}`; } catch {}
+  const user = `БРИФ (ДНК топ-ролика — берём только хук/структуру):\n${brief}${ytRefsText()}${platRule}\n\nСЦЕНАРИЙ (спека):\n${JSON.stringify(spec)}\n\nСравни силу хука с реальными залетевшими и с правилом площадки. Оцени; при правке сохрани поля спеки И продукт.`;
   return JSON.parse(await chat([{ role: "system", content: sys }, { role: "user", content: user }]));
 }
 
