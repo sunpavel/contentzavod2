@@ -63,7 +63,8 @@ for (const a of accounts) {
     // рендерим карточку
     const png = join(root, "remotion", "out", `_textcard_${idx}.png`);
     const props = JSON.stringify({ card: p.ig_card, accent: "#14C7C0", tag: "AI план питания" });
-    const r = spawnSync("npx", ["remotion", "still", "TextCard", png, `--props=${props}`, "--frame=0", "--log=error"], { cwd: join(root, "remotion") });
+    const extra = (process.env.REMOTION_RENDER_FLAGS || "").split(" ").filter(Boolean);
+    const r = spawnSync("npx", ["remotion", "still", "TextCard", png, `--props=${props}`, "--frame=0", "--log=error", ...extra], { cwd: join(root, "remotion") });
     if (r.status !== 0 || !existsSync(png)) { console.error("✗ instagram: не отрендерил карточку"); continue; }
     let url = await uploadPublic(png);
     if (!url.startsWith("http")) { console.error("✗ instagram: хостинг карточки упал:", url.slice(0, 120)); continue; }
