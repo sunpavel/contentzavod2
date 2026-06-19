@@ -25,10 +25,14 @@ const oneLine = (s) => String(s || "").replace(/\s*\n\s*/g, " ").replace(/\s{2,}
 export function buildCaption(spec, platform = "") {
   const p = String(platform || "").toLowerCase();
 
-  // 1) Хук — первая строка (она же уходит в заголовок YouTube)
-  const hookLine = oneLine((spec.hook || []).map((h) => h.line).join(" ")) || "Что приготовить на этой неделе?";
+  // 1) Хук — первая строка (она же уходит в заголовок YouTube).
+  //    demo-спека: hook[].line ; creator-спека: hookLine
+  const hookLine =
+    oneLine(spec.hookLine || (spec.hook || []).map((h) => h.line).join(" ")) ||
+    "Что приготовить на этой неделе?";
 
-  // 2) Месседж: что делает продукт + выгоды из спеки списком (с заглавной)
+  // 2) Месседж: что делает продукт + выгоды из спеки списком (с заглавной).
+  //    benefit берём из demo-спеки; для creator оставляем общий месседж.
   const cap1 = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
   const benefit = (spec.benefit || []).map(oneLine).filter(Boolean);
   const value =

@@ -1,0 +1,11 @@
+# ── Контент-завод FoodGenius: 3 слота в день, ограниченный объём ──
+# Время — Москва. Каждый слот генерит и публикует 1 ролик на площадку.
+# Установка:  crontab deploy/crontab     (проверить: crontab -l)
+# Логи:       logs/zavod_<дата>.log
+# Путь к репозиторию подставь свой, если он не /home/user/contentzavod2.
+CRON_TZ=Europe/Moscow
+
+#   мин час  день мес дн.нед   команда
+    0   8    *    *   *        /home/user/contentzavod2/tools/scheduled_run.sh morning demo    1
+    30  12   *    *   *        /home/user/contentzavod2/tools/scheduled_run.sh noon    creator 1
+    50  17   *    *   *        /home/user/contentzavod2/tools/scheduled_run.sh evening creator 1
