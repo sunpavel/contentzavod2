@@ -3,6 +3,7 @@ import {
   AbsoluteFill,
   OffthreadVideo,
   Img,
+  Audio,
   useCurrentFrame,
   useVideoConfig,
   interpolate,
@@ -16,7 +17,7 @@ import { fade } from "@remotion/transitions/fade";
 import { slide } from "@remotion/transitions/slide";
 
 export const DEMO_FPS = 30;
-export const DEMO_DURATION = 494; // ~16.5s (с учётом перекрытий)
+export const DEMO_DURATION = 536; // ~17.9s (с учётом перекрытий + save-бит)
 
 // Хук задаётся пропсом — так один компонент рендерит разные варианты боли.
 export type HookCard = { label: string; line: string; size?: number };
@@ -34,6 +35,8 @@ export type ReelSpec = {
   benefit?: string[];
   ctaTitle?: string;
   accent?: string;
+  saveText?: string;   // save-триггер (по умолчанию «Сохрани, чтобы не потерять»)
+  music?: boolean;     // если true — подмешать public/music.mp3
 };
 
 const MONT = "Montserrat";
@@ -240,6 +243,26 @@ const Benefit: React.FC<{ lines: string[]; accent: string }> = ({ lines, accent 
   );
 };
 
+// Save-триггер — короткий бит «сохрани» (saves — топ-сигнал для фуда)
+const SaveBeat: React.FC<{ text: string; accent: string }> = ({ text, accent }) => {
+  const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
+  const p = spring({ frame, fps, config: { damping: 12, stiffness: 130 } });
+  const pulse = 1 + Math.sin(frame * 0.2) * 0.05;
+  return (
+    <AbsoluteFill style={{ ...center, backgroundColor: C.dark, flexDirection: "column" }}>
+      <div style={{ transform: `scale(${p * pulse})`, marginBottom: 36 }}>
+        <svg width="120" height="150" viewBox="0 0 120 150">
+          <path d="M14 4 H106 V150 L60 112 L14 150 Z" fill={accent} />
+        </svg>
+      </div>
+      <div style={{ opacity: p, color: C.white, fontSize: 84, fontWeight: 900, lineHeight: 1.12, whiteSpace: "pre-line", padding: "0 40px", textShadow: "0 6px 30px rgba(0,0,0,0.4)" }}>
+        {text}
+      </div>
+    </AbsoluteFill>
+  );
+};
+
 const Cta: React.FC<{ title: string }> = ({ title }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
@@ -272,6 +295,8 @@ export const DemoReel: React.FC<ReelSpec> = ({
   benefit = ["Готовый план под цель", "Считает калории и КБЖУ", "+ список покупок"],
   ctaTitle = "Хочешь такой же\nплан питания?",
   accent = "#34D399",
+  saveText = "Сохрани, чтобы\nне потерять",
+  music = false,
 }) => {
   const [handle] = useState(() => delayRender("fonts"));
   useEffect(() => {
@@ -320,11 +345,17 @@ export const DemoReel: React.FC<ReelSpec> = ({
         </TransitionSeries.Sequence>
         <TransitionSeries.Transition {...fadeT(8)} />
 
+        <TransitionSeries.Sequence durationInFrames={50}>
+          <SaveBeat text={saveText} accent={accent} />
+        </TransitionSeries.Sequence>
+        <TransitionSeries.Transition {...fadeT(8)} />
+
         <TransitionSeries.Sequence durationInFrames={70}>
           <Cta title={ctaTitle} />
         </TransitionSeries.Sequence>
       </TransitionSeries>
       <Watermark />
+      {music && <Audio src={staticFile("music.mp3")} volume={0.45} loop />}
     </AbsoluteFill>
   );
 };
