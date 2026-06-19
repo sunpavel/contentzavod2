@@ -12,7 +12,7 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const SLOTS = [
   { hm: "08:00", fmt: "demo", slot: "morning" },
   { hm: "12:30", fmt: "text", slot: "noon" },
-  { hm: "17:50", fmt: "creator", slot: "evening" },
+  { hm: "17:50", fmt: "avatar", slot: "evening" }, // настоящий человек (HeyGen)
 ].map((s) => {
   const [H, M] = s.hm.split(":").map(Number);
   return { ...s, utcMin: ((H * 60 + M - 180) % 1440 + 1440) % 1440 };

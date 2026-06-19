@@ -3,7 +3,7 @@
 # Установка:  crontab deploy/crontab     (проверить: crontab -l)
 # Логи:       logs/zavod_<дата>.log
 # Путь к репозиторию подставь свой, если он не /home/user/contentzavod2.
-# Форматы: demo (промо-видео) | creator (UGC-видео) | text (текст: Threads+IG).
+# Форматы: demo (промо) | avatar (настоящий человек, HeyGen) | text (Threads+IG) | creator (маскот).
 CRON_TZ=Europe/Moscow
 # ВАЖНО: cron не видит твой обычный PATH — укажи папку с node (узнать: `dirname $(which node)`).
 PATH=/usr/local/bin:/usr/bin:/bin:/opt/node22/bin
@@ -11,4 +11,4 @@ PATH=/usr/local/bin:/usr/bin:/bin:/opt/node22/bin
 #   мин час  день мес дн.нед   команда
     0   8    *    *   *        /home/user/contentzavod2/tools/scheduled_run.sh morning demo    1
     30  12   *    *   *        /home/user/contentzavod2/tools/scheduled_run.sh noon    text    1
-    50  17   *    *   *        /home/user/contentzavod2/tools/scheduled_run.sh evening creator 1
+    50  17   *    *   *        /home/user/contentzavod2/tools/scheduled_run.sh evening avatar  1
