@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { chat } from "./llm.mjs";
 import { systemBrief, accentFor, getNiche, getPlatform } from "./audience.mjs";
+import { scoreScript } from "./critic.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const [, , nicheId = "family", platformId = "youtube"] = process.argv;
@@ -39,7 +40,7 @@ let out;
 try { out = JSON.parse((await chat(system, user, 600)).match(/\{[\s\S]*\}/)[0]); }
 catch (e) { console.error("генерация не удалась:", String(e).slice(0, 160)); process.exit(1); }
 
-const spec = {
+let spec = {
   hook: (out.hook || "").trim(),
   script: (out.script || "").trim(),
   ctaTitle: (out.ctaTitle || "Попробуй\nбесплатно").trim(),
@@ -47,6 +48,23 @@ const spec = {
   niche: nicheId,
   platform: platformId,
 };
+
+// критик-рефайн (≤2): сверка с правилом площадки + реальными залетевшими; keep-best, продукт обязателен
+const briefForCritic = systemBrief(nicheId, platformId);
+const keepProduct = (s) => /foodgenius|telegram|телеграм|план питания|список покупок|\bбот\b/i.test(JSON.stringify(s || {}));
+let best = spec, bestScore = -1;
+for (let i = 0; i < 2; i++) {
+  let res;
+  try { res = await scoreScript(briefForCritic, spec); } catch { break; }
+  if (res._skip) break;
+  const sc = res.score ?? 0;
+  console.log(`  критик #${i + 1}: ${sc}/10` + ((res.issues || []).length ? " — " + res.issues.slice(0, 2).join("; ") : ""));
+  if (sc > bestScore) { bestScore = sc; best = spec; }
+  if (sc >= 8 || !res.revised || !keepProduct(res.revised)) break;
+  spec = { ...res.revised, accent: accentFor(nicheId), niche: nicheId, platform: platformId };
+}
+spec = best;
+
 mkdirSync(join(root, "remotion", "run"), { recursive: true });
 writeFileSync(join(root, "remotion", "run", "spec_0.json"), JSON.stringify(spec, null, 2));
 console.log(`✓ ${getNiche(nicheId).name} × ${getPlatform(platformId).name}`);
