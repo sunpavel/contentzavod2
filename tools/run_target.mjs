@@ -14,6 +14,15 @@ const [, , niche = "family", platform = "youtube"] = process.argv;
 const DRY = process.env.DRY_RUN === "1";
 const node = (script, args) => spawnSync("node", [join(root, "tools", script), ...args], { stdio: "inherit", cwd: root });
 
+// лог опубликованного поста — основа петли аналитики
+const logPost = (niche, platform, hook) => {
+  const p = join(root, "mining", "post_log.json");
+  let log = [];
+  try { if (existsSync(p)) log = JSON.parse(readFileSync(p, "utf8")); } catch {}
+  log.push({ ts: Date.now(), date: new Date().toISOString().slice(0, 10), niche, platform, hook: (hook || "").slice(0, 120) });
+  writeFileSync(p, JSON.stringify(log, null, 2));
+};
+
 // 1) скрипт под нишу/площадку (внутри — критик-рефайн)
 console.log(`\n▶ скрипт: ${niche} × ${platform}${DRY ? "  [DRY-RUN]" : ""}`);
 if (node("gen_script.mjs", [niche, platform]).status !== 0) process.exit(1);
@@ -25,7 +34,9 @@ if (platform === "threads") {
   const text = `${spec.script}\n\nt.me/foodgenius_ai_bot`;
   console.log("\n▶ текстовый пост (Threads):\n" + text + "\n");
   if (DRY) { console.log("[dry-run] публикацию пропускаю."); process.exit(0); }
-  process.exit(node("publish_blotato.mjs", ["", text, "threads"]).status ?? 1);
+  const st = node("publish_blotato.mjs", ["", text, "threads"]).status ?? 1;
+  if (st === 0) logPost(niche, "threads", spec.hook);
+  process.exit(st);
 }
 
 // 2b) ВИДЕО — HeyGen-человек → рендер → публикация на площадку
@@ -56,4 +67,6 @@ node("qa_frames.mjs", ["/tmp/target_brief.txt", "/tmp/target_props.json", "RealC
 const cap = buildCaption(spec, platform);
 console.log("\n▶ подпись:\n" + cap + "\n");
 if (DRY) { console.log(`[dry-run] публикацию на ${platform} пропускаю. Видео готово: ${out}`); process.exit(0); }
-process.exit(node("publish_blotato.mjs", [out, cap, platform]).status ?? 1);
+const st = node("publish_blotato.mjs", [out, cap, platform]).status ?? 1;
+if (st === 0) logPost(niche, platform, spec.hook);
+process.exit(st);

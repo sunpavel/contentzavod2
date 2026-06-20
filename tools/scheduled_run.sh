@@ -24,7 +24,13 @@ echo "===== [$STAMP] slot=$SLOT format=$FORMAT N=$N =====" | tee -a "$LOG"
 if [ -z "${DEEPSEEK_API_KEY:-}" ] && [ -z "${ANTHROPIC_API_KEY:-}" ]; then echo "✗ нет LLM-ключа в .env" | tee -a "$LOG"; exit 1; fi
 
 if [ "$FORMAT" = "target" ]; then
-  # ниша × площадка из ротации (позиция слота)
+  # раз в день (утро) обновляем веса по метрикам: метрики → веса → ротация смещается к отдаче
+  if [ "$SLOT" = "morning" ]; then
+    echo "↻ аналитика: метрики → веса" | tee -a "$LOG"
+    node "$ROOT/tools/fetch_metrics.mjs" 2>&1 | tee -a "$LOG" || true
+    node "$ROOT/tools/update_weights.mjs" 2>&1 | tee -a "$LOG" || true
+  fi
+  # ниша × площадка из ротации/весов (позиция слота)
   case "$SLOT" in morning) si=0;; noon) si=1;; evening) si=2;; *) si=0;; esac
   TARGET="$(node "$ROOT/tools/next_target.mjs" "$si")"
   echo "цель слота (ротация): $TARGET" | tee -a "$LOG"

@@ -18,3 +18,7 @@ mining/brief.json
 
 mining/youtube_refs.json
 mining/n8n_concept.json
+
+mining/post_log.json
+mining/post_metrics.json
+config/weights.json
