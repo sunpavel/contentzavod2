@@ -79,5 +79,17 @@
       "hashtags_base": ["#питание", "#еда"],
       "hashtags_max": 2
     }
-  }
+  },
+  "_rotation_doc": "Очередь (ниша × площадка) для слотов расписания. 9 пар = 3-дневный цикл (3 слота/день). Только подключённые к Blotato площадки (youtube/instagram/threads). TikTok добавить, когда подключишь. Правь как угодно — это просто очередь.",
+  "rotation": [
+    ["family", "youtube"],
+    ["weight_loss", "instagram"],
+    ["budget", "threads"],
+    ["fitness", "youtube"],
+    ["weight_loss", "youtube"],
+    ["family", "threads"],
+    ["fitness", "instagram"],
+    ["budget", "instagram"],
+    ["weight_loss", "threads"]
+  ]
 }

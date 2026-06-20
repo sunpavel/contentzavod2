@@ -10,9 +10,9 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 
 // Слоты в МСК → минута от полуночи UTC. Меняй тут (или переопредели расписание на сервере).
 const SLOTS = [
-  { hm: "08:00", fmt: "demo", slot: "morning" },
-  { hm: "12:30", fmt: "text", slot: "noon" },
-  { hm: "17:50", fmt: "avatar", slot: "evening" }, // настоящий человек (HeyGen)
+  { hm: "08:00", fmt: "target", slot: "morning" },  // ниша×площадка из ротации
+  { hm: "12:30", fmt: "target", slot: "noon" },
+  { hm: "17:50", fmt: "target", slot: "evening" },
 ].map((s) => {
   const [H, M] = s.hm.split(":").map(Number);
   return { ...s, utcMin: ((H * 60 + M - 180) % 1440 + 1440) % 1440 };

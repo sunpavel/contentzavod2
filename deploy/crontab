@@ -9,6 +9,6 @@ CRON_TZ=Europe/Moscow
 PATH=/usr/local/bin:/usr/bin:/bin:/opt/node22/bin
 
 #   мин час  день мес дн.нед   команда
-    0   8    *    *   *        /home/user/contentzavod2/tools/scheduled_run.sh morning demo    1
-    30  12   *    *   *        /home/user/contentzavod2/tools/scheduled_run.sh noon    text    1
-    50  17   *    *   *        /home/user/contentzavod2/tools/scheduled_run.sh evening avatar  1
+    0   8    *    *   *        /home/user/contentzavod2/tools/scheduled_run.sh morning target 1
+    30  12   *    *   *        /home/user/contentzavod2/tools/scheduled_run.sh noon    target 1
+    50  17   *    *   *        /home/user/contentzavod2/tools/scheduled_run.sh evening target 1
