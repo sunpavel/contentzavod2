@@ -22,8 +22,21 @@ export function systemBrief(nicheId, platformId) {
     `НИША «${n.name}» (${n.audience}). Боли: ${n.pains.join("; ")}. ` +
     `Угол продукта: ${n.product_angle}. Примеры хуков ниши: ${(n.hook_examples || []).join(" / ")}. ` +
     `ПЛОЩАДКА ${p.name}: тон — ${p.tone}. Хук — ${p.hook_rule}. Длина — ${len}. ` +
+    `ПУТЬ В БОТА на этой площадке: ${ctaPath(platformId)} — в призыве чётко скажи, ГДЕ искать ссылку. ` +
     `Подбирай тон и хук СТРОГО под эту площадку и эту нишу — на разных площадках они РАЗНЫЕ.`
   );
+}
+
+// Где на площадке лежит кликабельная ссылка на бота (для устного/текстового призыва).
+export const ctaPath = (platformId) => getPlatform(platformId).cta_path || "ссылка в профиле";
+
+// Короткая подпись-указатель для экранного CTA в ролике (sound-off зрители).
+export function ctaHintScreen(platformId) {
+  const id = String(platformId || "").toLowerCase();
+  if (id === "instagram" || id === "tiktok") return "ссылка в шапке профиля ☝";
+  if (id === "youtube") return "ссылка в описании ↓";
+  if (id === "threads") return "ссылка в посте ↓";
+  return "бесплатно, в Telegram";
 }
 
 // Конфиг подписи под площадку (тон, хэштеги, лимит).

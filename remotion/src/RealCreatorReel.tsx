@@ -26,6 +26,7 @@ export type RealCreatorSpec = {
   avatarFrames?: number; // длина этого видео в кадрах (ставит calculateMetadata)
   hook?: string;         // текст-хук на экране в первые ~2с (просмотр без звука)
   ctaTitle?: string;
+  ctaHint?: string;      // подпись под ссылкой: ГДЕ её искать (IG/TikTok → «в шапке профиля»)
   accent?: string;
 };
 export const REALCREATOR_DEFAULT: RealCreatorSpec = {
@@ -33,6 +34,7 @@ export const REALCREATOR_DEFAULT: RealCreatorSpec = {
   avatarFrames: 480,
   hook: "Надоело думать,\nчто приготовить?",
   ctaTitle: "Попробуй — это\nбесплатно",
+  ctaHint: "бесплатно, в Telegram",
   accent: "#14C7C0",
 };
 
@@ -103,7 +105,7 @@ const AppInset: React.FC<{ avatarFrames: number; accent: string }> = ({ avatarFr
   );
 };
 
-const Cta: React.FC<{ title: string; accent: string }> = ({ title, accent }) => {
+const Cta: React.FC<{ title: string; accent: string; hint: string }> = ({ title, accent, hint }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
   const t = spring({ frame, fps, config: { damping: 200 } });
@@ -118,7 +120,7 @@ const Cta: React.FC<{ title: string; accent: string }> = ({ title, accent }) => 
       <div style={{ transform: `scale(${pill * pulse})`, background: C.white, color: "#0E8F8A", fontSize: 54, fontWeight: 900, padding: "26px 52px", borderRadius: 60, boxShadow: "0 18px 50px rgba(0,0,0,0.3)" }}>
         {LINK}
       </div>
-      <div style={{ opacity: pill, color: C.white, fontSize: 42, fontWeight: 700, marginTop: 28 }}>бесплатно, в Telegram</div>
+      <div style={{ opacity: pill, color: C.white, fontSize: 42, fontWeight: 700, marginTop: 28, textAlign: "center", padding: "0 40px" }}>{hint}</div>
     </AbsoluteFill>
   );
 };
@@ -128,6 +130,7 @@ export const RealCreatorReel: React.FC<RealCreatorSpec> = ({
   avatarFrames = REALCREATOR_DEFAULT.avatarFrames,
   hook = REALCREATOR_DEFAULT.hook,
   ctaTitle = REALCREATOR_DEFAULT.ctaTitle,
+  ctaHint = REALCREATOR_DEFAULT.ctaHint,
   accent = REALCREATOR_DEFAULT.accent,
 }) => {
   const [handle] = useState(() => delayRender("fonts"));
@@ -161,7 +164,7 @@ export const RealCreatorReel: React.FC<RealCreatorSpec> = ({
         </AbsoluteFill>
       </Sequence>
       <Sequence from={af - 10} durationInFrames={ctaFrames + 10}>
-        <Cta title={ctaTitle!} accent={accent!} />
+        <Cta title={ctaTitle!} accent={accent!} hint={ctaHint!} />
       </Sequence>
     </AbsoluteFill>
   );

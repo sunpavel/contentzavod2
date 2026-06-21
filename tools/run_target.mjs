@@ -7,7 +7,7 @@ import { readFileSync, existsSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { buildCaption, botLink } from "./build_caption.mjs";
-import { systemBrief } from "./audience.mjs";
+import { systemBrief, ctaHintScreen } from "./audience.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const [, , niche = "family", platform = "youtube"] = process.argv;
@@ -52,7 +52,7 @@ if (!DRY) {
 
 const sidecar = join(root, "remotion", "public", "avatar_talk.json");
 const frames = existsSync(sidecar) ? JSON.parse(readFileSync(sidecar, "utf8")).frames : 432;
-const props = { hook: spec.hook, ctaTitle: spec.ctaTitle, accent: spec.accent, avatarSrc: "avatar_talk.mp4", avatarFrames: frames };
+const props = { hook: spec.hook, ctaTitle: spec.ctaTitle, ctaHint: ctaHintScreen(platform), accent: spec.accent, avatarSrc: "avatar_talk.mp4", avatarFrames: frames };
 writeFileSync("/tmp/target_props.json", JSON.stringify(props));
 
 const out = join(root, "remotion", "out", `target_${niche}_${platform}.mp4`);
