@@ -40,13 +40,14 @@ export function buildCaption(spec, platform = "") {
     "AI соберёт план питания на неделю и список покупок за 10 секунд" +
     (benefit.length ? ":\n" + benefit.map((b) => "— " + cap1(b)).join("\n") : ".");
 
-  // 3) CTA + путь в бота — РАЗНЫЙ под площадку (в IG ссылка в подписи НЕ кликается → ведём в профиль).
+  // 3) CTA + путь в бота — РАЗНЫЙ под площадку (в IG/TikTok ссылка в подписи НЕ кликается → ведём в профиль).
   const cta = oneLine(spec.ctaTitle) || "Попробуй";
   const free = /бесплатн/i.test(cta) ? "" : "Бесплатно. ";
   const link = botLink(p, spec.niche);
+  const bioPlatform = p === "instagram" || p === "tiktok";
   const ctaBlock =
-    p === "instagram"
-      ? `${cta} 👉 ${free}Жми ссылку в профиле (🔝 в шапке) — @foodgenius_ai_bot`
+    bioPlatform
+      ? `${cta} 👉 ${free}Жми ссылку в шапке профиля (🔝) — @foodgenius_ai_bot`
       : `${cta} 👇 ${free}Бот в Telegram, без регистрации:\n${link}`;
 
   // 4) Хэштеги — из профиля площадки (base + лимит), иначе запасные
