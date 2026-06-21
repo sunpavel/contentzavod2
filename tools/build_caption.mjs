@@ -8,6 +8,14 @@ import { captionConfig } from "./audience.mjs";
 export const BOT_URL = "https://t.me/foodgenius_ai_bot";
 export const BOT_HANDLE = "@foodgenius_ai_bot";
 
+// Deep-link с ref-кодом площадки/ниши: бот видит, ОТКУДА пришёл юзер (атрибуция).
+// Telegram /start получит параметр, напр. "ig-weight_loss". Бот логирует его → знаем что конвертит.
+const ABBR = { youtube: "yt", instagram: "ig", threads: "th", tiktok: "tt" };
+export function botLink(platform = "", niche = "") {
+  const p = ABBR[platform] || "x";
+  return `https://t.me/foodgenius_ai_bot?start=${niche ? `${p}-${niche}` : p}`;
+}
+
 // Запасные хэштеги, если площадка не задана.
 const BASE_TAGS = ["#рецепты", "#чтоприготовить", "#ужин", "#планпитания", "#mealprep"];
 
@@ -32,10 +40,14 @@ export function buildCaption(spec, platform = "") {
     "AI соберёт план питания на неделю и список покупок за 10 секунд" +
     (benefit.length ? ":\n" + benefit.map((b) => "— " + cap1(b)).join("\n") : ".");
 
-  // 3) CTA + ссылка на бота (всегда!). Не дублируем «бесплатно», если оно уже в CTA.
+  // 3) CTA + путь в бота — РАЗНЫЙ под площадку (в IG ссылка в подписи НЕ кликается → ведём в профиль).
   const cta = oneLine(spec.ctaTitle) || "Попробуй";
-  const free = /бесплатн/i.test(cta) ? "в Telegram" : "Бесплатно, в Telegram";
-  const ctaBlock = `${cta} 👇 ${free}:\n${BOT_URL}`;
+  const free = /бесплатн/i.test(cta) ? "" : "Бесплатно. ";
+  const link = botLink(p, spec.niche);
+  const ctaBlock =
+    p === "instagram"
+      ? `${cta} 👉 ${free}Жми ссылку в профиле (🔝 в шапке) — @foodgenius_ai_bot`
+      : `${cta} 👇 ${free}Бот в Telegram, без регистрации:\n${link}`;
 
   // 4) Хэштеги — из профиля площадки (base + лимит), иначе запасные
   let tags = BASE_TAGS;

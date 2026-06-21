@@ -6,7 +6,7 @@ import { spawnSync } from "node:child_process";
 import { readFileSync, existsSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
-import { buildCaption } from "./build_caption.mjs";
+import { buildCaption, botLink } from "./build_caption.mjs";
 import { systemBrief } from "./audience.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -31,7 +31,7 @@ writeFileSync("/tmp/target_brief.txt", systemBrief(niche, platform));
 
 // 2a) ТЕКСТ (Threads) — чистый текст, без видео
 if (platform === "threads") {
-  const text = `${spec.script}\n\nt.me/foodgenius_ai_bot`;
+  const text = `${spec.script}\n\n${botLink("threads", niche)}`;
   console.log("\n▶ текстовый пост (Threads):\n" + text + "\n");
   if (DRY) { console.log("[dry-run] публикацию пропускаю."); process.exit(0); }
   const st = node("publish_blotato.mjs", ["", text, "threads"]).status ?? 1;
