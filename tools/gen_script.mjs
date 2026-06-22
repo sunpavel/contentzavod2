@@ -8,6 +8,7 @@ import { dirname, join } from "node:path";
 import { chat } from "./llm.mjs";
 import { systemBrief, accentFor, getNiche, getPlatform } from "./audience.mjs";
 import { scoreScript } from "./critic.mjs";
+import { findProfanity, hasProfanity } from "./sanitize.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const [, , nicheId = "family", platformId = "youtube"] = process.argv;
@@ -64,6 +65,21 @@ for (let i = 0; i < 2; i++) {
   spec = { ...res.revised, accent: accentFor(nicheId), niche: nicheId, platform: platformId };
 }
 spec = best;
+
+// защита бренда: ни одного вульгаризма в озвучке/тексте. Грязно — чистая переписка; не вышло — слот пропускаем.
+const dirtyS = findProfanity(`${spec.hook}\n${spec.script}\n${spec.ctaTitle}`);
+if (dirtyS.length) {
+  console.error("  ⚠ вульгаризм в скрипте: " + dirtyS.join(", ") + " — переписываю начисто…");
+  try {
+    const fixSys = system + " ВНИМАНИЕ: прошлая версия содержала вульгарные слова. Перепиши СОВЕРШЕННО чисто, без мата и вульгаризмов, сохрани смысл, продукт и призыв.";
+    const re = JSON.parse((await chat(fixSys, `Перепиши без вульгарных слов (${dirtyS.join(", ")}), сохранив продукт и призыв:\n${JSON.stringify(spec)}`, 600)).match(/\{[\s\S]*\}/)[0]);
+    if (re.script && keepProduct(re)) spec = { ...spec, hook: (re.hook || spec.hook).trim(), script: re.script.trim(), ctaTitle: (re.ctaTitle || spec.ctaTitle).trim() };
+  } catch {}
+}
+if (hasProfanity(`${spec.hook}\n${spec.script}\n${spec.ctaTitle}`)) {
+  console.error("✗ не удалось очистить скрипт от вульгаризмов — слот пропущен (мат на бренд-аккаунте не публикуем).");
+  process.exit(1);
+}
 
 mkdirSync(join(root, "remotion", "run"), { recursive: true });
 writeFileSync(join(root, "remotion", "run", "spec_0.json"), JSON.stringify(spec, null, 2));

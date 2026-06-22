@@ -3,6 +3,9 @@
 //   media ""  → текстовый пост (mediaUrls:[]) — для Threads
 //   platformFilter "youtube" или "youtube,threads" → постить ТОЛЬКО на эти площадки
 // Env: BLOTATO_API_KEY, BLOTATO_ACCOUNTS="instagram:ID,tiktok:ID,youtube:ID,threads:ID"
+//   BLOTATO_THREAD_FILE=/path/posts.json — JSON-массив строк-постов: публикует ВЕТКУ
+//     (1-й → content.text, остальные → content.additionalPosts[]; Blotato сам сцепляет в ответы).
+//     Работает для threads/twitter/bluesky; на прочих площадках посты склеиваются в один текст.
 import { readFileSync, existsSync } from "node:fs";
 import { basename } from "node:path";
 
@@ -47,6 +50,18 @@ if (!textOnly) {
   } catch {}
 }
 
+// Ветка (ПРОМПТ 4): массив постов из BLOTATO_THREAD_FILE. Площадки с нативными тредами сцепляют в ответы.
+const THREADABLE = new Set(["threads", "twitter", "bluesky"]);
+let threadPosts = null;
+const tf = process.env.BLOTATO_THREAD_FILE;
+if (tf && existsSync(tf)) {
+  try {
+    const arr = JSON.parse(readFileSync(tf, "utf8"));
+    const posts = (Array.isArray(arr) ? arr : []).map((x) => (typeof x === "string" ? x : x?.text || "")).map((s) => s.trim()).filter(Boolean);
+    if (posts.length) threadPosts = posts;
+  } catch (e) { console.error("BLOTATO_THREAD_FILE не распарсился:", String(e).slice(0, 120)); }
+}
+
 // Instagram запрещает >5 хэштегов — обрезаем хэштег-блок до 5 для этой площадки.
 const capHashtags = (text, max) => {
   const lines = text.split("\n");
@@ -65,6 +80,15 @@ let ok = 0;
 for (const a of accounts) {
   const text = a.platform === "instagram" ? capHashtags(caption, 5) : caption;
   const content = { text, platform: a.platform, mediaUrls: textOnly ? [] : [mediaUrl] };
+  // ВЕТКА: первый пост в text, остальные — additionalPosts (нативные треды) или склейка (прочие).
+  if (threadPosts && threadPosts.length > 1) {
+    if (THREADABLE.has(a.platform)) {
+      content.text = threadPosts[0];
+      content.additionalPosts = threadPosts.slice(1).map((t) => ({ text: t, mediaUrls: [] }));
+    } else {
+      content.text = threadPosts.join("\n\n");
+    }
+  }
   const target =
     a.platform === "youtube"
       ? { targetType: "youtube", title: caption.split("\n")[0].slice(0, 90), privacyStatus: "public", shouldNotifySubscribers: false }

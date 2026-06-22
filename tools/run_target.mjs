@@ -23,21 +23,32 @@ const logPost = (niche, platform, hook) => {
   writeFileSync(p, JSON.stringify(log, null, 2));
 };
 
-// 1) скрипт под нишу/площадку (внутри — критик-рефайн)
+// 2a) ВЕТКА (Threads) — несколько связанных твитов: алгоритм разгоняет ветки, а не одиночные посты
+if (platform === "threads") {
+  console.log(`\n▶ ветка (Threads): ${niche}${DRY ? "  [DRY-RUN]" : ""}`);
+  if (node("gen_thread.mjs", [niche]).status !== 0) process.exit(1);
+  const thread = JSON.parse(readFileSync(join(root, "remotion", "run", "thread_0.json"), "utf8"));
+  // ссылку на бота ставим ПРЕДпоследним постом — ветка ДОЛЖНА заканчиваться вопросом (комменты = разгон в первый час)
+  const linkPost = `Готовый план питания на неделю + список покупок собирает бот — бесплатно, в Telegram:\n${botLink("threads", niche)}`;
+  const posts = [...thread.posts];
+  const finalQ = posts.pop();
+  const full = [...posts, linkPost, finalQ];
+  console.log("\n▶ ветка к публикации:");
+  full.forEach((p, i) => console.log(`  [${i + 1}] ${p}`));
+  if (DRY) { console.log("\n[dry-run] публикацию ветки пропускаю."); process.exit(0); }
+  const tfile = "/tmp/thread_posts.json";
+  writeFileSync(tfile, JSON.stringify(full));
+  const st = spawnSync("node", [join(root, "tools", "publish_blotato.mjs"), "", full[0], "threads"],
+    { stdio: "inherit", cwd: root, env: { ...process.env, BLOTATO_THREAD_FILE: tfile } }).status ?? 1;
+  if (st === 0) logPost(niche, "threads", thread.hook);
+  process.exit(st);
+}
+
+// 1) скрипт под нишу/площадку (внутри — критик-рефайн) — для видео-форматов
 console.log(`\n▶ скрипт: ${niche} × ${platform}${DRY ? "  [DRY-RUN]" : ""}`);
 if (node("gen_script.mjs", [niche, platform]).status !== 0) process.exit(1);
 const spec = JSON.parse(readFileSync(join(root, "remotion", "run", "spec_0.json"), "utf8"));
 writeFileSync("/tmp/target_brief.txt", systemBrief(niche, platform));
-
-// 2a) ТЕКСТ (Threads) — чистый текст, без видео
-if (platform === "threads") {
-  const text = `${spec.script}\n\n${botLink("threads", niche)}`;
-  console.log("\n▶ текстовый пост (Threads):\n" + text + "\n");
-  if (DRY) { console.log("[dry-run] публикацию пропускаю."); process.exit(0); }
-  const st = node("publish_blotato.mjs", ["", text, "threads"]).status ?? 1;
-  if (st === 0) logPost(niche, "threads", spec.hook);
-  process.exit(st);
-}
 
 // 2b) ВИДЕО — HeyGen-человек → рендер → публикация на площадку
 const avatarMp4 = join(root, "remotion", "public", "avatar_talk.mp4");
